@@ -16,6 +16,8 @@ button.lg,button.primary{min-height:52px;font-size:1.05rem}
 .hm-oss{display:inline-flex;align-items:center;gap:.45em;margin-left:1em;color:inherit;text-decoration:none;opacity:.85}
 .hm-oss:hover{opacity:1;text-decoration:underline}
 .hm-oss svg{flex:none}
+#zipbox [data-testid=block-label]{background:none !important;border:none !important;box-shadow:none !important;color:inherit !important;padding-left:0 !important;font-weight:600}
+.stats{margin-top:8px}.stats summary{cursor:pointer;font-size:.88rem;opacity:.85;padding:6px 0}
 #status{min-height:2.8rem;overflow-anchor:none}
 .note{border:1px solid var(--border-color-primary,#8884);border-left:4px solid #10b981;border-radius:10px;padding:10px 14px;margin:10px 0;background:var(--background-fill-secondary,#8881);font-size:.92rem;line-height:1.45}
 .about{font-size:.92rem;line-height:1.5}.about p,.about ul{margin:.5em 0}.about li{margin:.35em 0}
@@ -33,6 +35,8 @@ button.lg,button.primary{min-height:52px;font-size:1.05rem}
 .cmp-dl,.cmp-mode,.cmp-full,.copy{padding:8px 14px;min-height:40px;border-radius:10px;border:1px solid var(--border-color-primary,#8886);
   background:var(--button-secondary-background-fill,#8882);color:inherit;font-size:.9rem;text-decoration:none;cursor:pointer;
   display:inline-flex;align-items:center}
+.cmp-dl{background:#10b981;border-color:#10b981;color:#fff;font-weight:600;gap:.45em}
+.cmp-dl svg{flex:none}
 .copy{min-height:32px;padding:3px 10px;margin-left:8px;font-size:.8rem}
 .stage{position:relative;margin:10px 0;border-radius:10px;overflow:hidden;aspect-ratio:var(--ar);width:100%;max-height:75vh;
   background:#0003;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;outline:none}
@@ -97,7 +101,6 @@ HEAD = """
   document.addEventListener('pointerdown', function(ev){
     var st = closest(ev.target, '.stage'); if (st && closest(st, '.cmp').dataset.mode === 'hold'){ st.classList.add('holding'); try{ st.setPointerCapture(ev.pointerId) }catch(x){} }
     var fs = closest(ev.target, '.fs-stage'); if (fs && fs.dataset.mode === 'hold'){ fs.classList.add('holding') }
-    var hb = closest(ev.target, '.fs-hold'); if (hb){ HM.fsStage().classList.add('holding') }
   });
   function release(ev){
     document.querySelectorAll('.stage.holding,.fs-stage.holding').forEach(function(n){ n.classList.remove('holding') });
@@ -170,9 +173,9 @@ HEAD = """
   HM.fsOpen = function(name, prot, orig){
     var m = document.getElementById('hm-full');
     if (!m){ m = document.createElement('div'); m.id = 'hm-full'; document.body.appendChild(m);
-      m.innerHTML = '<div class="fs-bar"><span class="fs-title"></span><button class="fs-hold" title="Hold to see the original (or hold Space)">Hold: original</button>'
+      m.innerHTML = '<div class="fs-bar"><span class="fs-title"></span>'
         + '<button class="fs-mode">Slider</button><button class="fs-fit">Actual size (100%)</button><button class="fs-close">Close</button></div>'
-        + '<div class="fs-note">Full resolution. Hold the button, the image or Space to see the original. Use Actual size to inspect pixels, then scroll to pan.</div>'
+        + '<div class="fs-note">Full resolution. Hold the image or Space to see the original. Use Actual size to inspect pixels, then scroll to pan.</div>'
         + '<div class="fs-body"><div class="fs-stage" data-mode="hold" data-fit="fit"><img class="fs-m" alt=""><img class="fs-o" alt="">'
         + '<input class="fs-range" type="range" min="0" max="100" value="50" aria-label="Compare slider"><div class="fs-div"></div></div></div>' }
     var st = m.querySelector('.fs-stage'); st.dataset.mode = 'hold'; st.dataset.fit = 'fit'; st.classList.remove('holding');
@@ -201,9 +204,10 @@ def card(it: dict) -> str:
     """One before/after card. `it` keys: name, full, orig_full, mist, orig, w, h, download, tag, target, m, seconds."""
     m = it.get("m")
     chips = []
+    tagchip = ""
     if it.get("tag") is not None:
         alt = it.get("alt") or it["tag"]
-        chips.append(f"<span class='chip'>Tag: <b>{e(it['tag'])}</b><button type='button' class='copy' data-text=\"{e(alt)}\">Copy ALT</button></span>")
+        tagchip = f"<div class='chips'><span class='chip'>Tag: <b>{e(it['tag'])}</b><button type='button' class='copy' data-text=\"{e(alt)}\">Copy ALT</button></span></div>"
     if it.get("target"):
         chips.append(f"<span class='chip'>Pushes towards: <b>{e(it['target'])}</b></span>")
     if m:
@@ -217,7 +221,7 @@ def card(it: dict) -> str:
 <div class="cmp" data-mode="hold" style="--ar:{it['w']} / {it['h']}">
   <div class="cmp-head"><span class="cmp-name">{e(it['name'])}</span>
     <span class="cmp-btns"><button type="button" class="cmp-full" data-name="{e(it['name'])}" data-prot="file={e(it['full'])}" data-orig="file={e(it['orig_full'])}">Full size</button>
-    <a class="cmp-dl" href="file={e(it['full'])}" download="{e(it['download'])}">Download</a></span></div>
+    <a class="cmp-dl" href="file={e(it['full'])}" download="{e(it['download'])}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Download</a></span></div>
   <div class="stage" tabindex="0" role="img" aria-label="Protected image. Press and hold, or hold Space, to see the original." oncontextmenu="return false">
     <img class="img-m" src="file={e(it['mist'])}" alt="" draggable="false">
     <img class="img-o" src="file={e(it['orig'])}" alt="" draggable="false">
@@ -227,7 +231,8 @@ def card(it: dict) -> str:
   </div>
   <div class="cmp-foot"><span class="hint">Press and hold the image to see the original</span>
     <button type="button" class="cmp-mode">Switch to slider</button></div>
-  <div class="chips">{''.join(chips)}</div>
+  {tagchip}
+  <details class="stats"><summary>Stats</summary><div class="chips">{''.join(chips)}</div></details>
 </div>"""
 
 

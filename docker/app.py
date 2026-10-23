@@ -53,22 +53,16 @@ PORT = int(os.environ.get("HEMLOCK_PORT", "7860"))
 ABOUT_HTML = f"""
 <div class='about'>
 <p><b>What PyTorch is.</b> PyTorch is a machine-learning library: software for building and running neural networks, the kind of model that
-AI image generators and image recognisers are made of. It does the heavy maths on the graphics card (GPU). It is a toolbox, not the clever
-part. The clever part is the algorithm built with it.</p>
+AI image generators and image recognisers are made of. It does the heavy maths on the graphics card (GPU).</p>
 <p><b>What the algorithm does.</b> Both methods run an optimisation. They look at your image through a neural network, then nudge the pixels by tiny
-amounts, thousands of times, checking each time how the network's view of the image changes. They keep the nudges that steer that view
-somewhere else while staying small enough that people barely notice. That repeated nudge-and-check loop is why a single image takes seconds to
-minutes and needs a GPU.</p>
+amounts, thousands of times, checking each time how the network's view of the image changes.</p>
 <ul>
 <li><b>Hemlock</b> (a Nightshade-style method) steers the image towards a different concept, for example "dog" towards "car". The idea is that an AI
-trained on many such images, all labelled honestly, slowly learns the wrong association. It works on what a model <i>learns from</i> your art, so a
-single image will not change what any assistant says about it today.</li>
+trained on many such images, all labelled honestly, slowly learns the wrong association.</li>
 <li><b>Mist</b> adds noise aimed at tools that copy an artist's style, so that attempts to imitate your work come out scrambled.</li>
 </ul>
-<p><b>Honest limits.</b> These are deterrents, not guarantees. How well they hold up against real training has not been independently measured here, and
-nothing replaces keeping your originals and posting responsibly.</p>
-<p><b>Your images.</b> Uploads are kept on the server only while they are processed and for your download, then deleted automatically after
-about {max(1, JOB_TTL // 60)} minutes. Please do not upload anything you are not allowed to share.</p>
+<p>These methods are deterrents, not guarantees. Your uploads are deleted after about {max(1, JOB_TTL // 60)} minutes. Please do not upload anything
+you are not allowed to share, or anything illegal.</p>
 </div>
 """
 INFO_HTML = f"""
@@ -470,7 +464,7 @@ def status_text():
         elif snap["kind"]:
             label = "Hemlock" if snap["kind"] == "hemlock" else "Mist"
             if snap["idle_left"] is not None:
-                parts.append(viewer.pill("idle", f"{label} loaded, frees memory in {max(1, round(snap['idle_left'] / 60))} min if idle"))
+                parts.append(viewer.pill("idle", f"{label} loaded, unloads if idle for {max(1, round(snap['idle_left'] / 60))} more min"))
             else:
                 parts.append(viewer.pill("idle", f"{label} loaded"))
         else:
@@ -529,14 +523,11 @@ def build():
     with gr.Blocks(title="Hemlock", analytics_enabled=False, css=viewer.CSS, head=viewer.HEAD,
                    theme=gr.themes.Soft(primary_hue="emerald", neutral_hue="slate")) as demo:
         gr.HTML(
-            "<div id='hero'><h1>Hemlock</h1>"
-            "<p>Protect your artwork from AI scraping. Pick a method, upload one image or a whole batch, then press and hold "
-            "a result to compare it with your original. Images are deleted from the server after a while.</p></div>"
+            "<div id='hero'><h1>Hemlock</h1></div>"
         )
         gr.HTML(
             "<div class='note'><b>Please be patient.</b> This is a hobby project running on a spare PC in my basement, not in a data center. "
-            "There is one GPU and it works on one job at a time, so your images may wait in line behind someone else's, and big batches or the "
-            "slower settings take a while. Thanks for bearing with it.</div>"
+            "Your images may wait in line behind someone else's, which can take a few minutes.</div>"
         )
         with gr.Accordion("About this project: what is happening to my image?", open=False):
             gr.HTML(ABOUT_HTML)
@@ -548,8 +539,8 @@ def build():
                                "Mist adds noise that disrupts copying an artist's style (several minutes per image).")
         with gr.Row():
             with gr.Column(scale=3, min_width=320):
-                files = gr.File(label=f"Your images (Hemlock up to {MAX_FILES_H}, Mist up to {MAX_FILES_M} per run)",
-                                file_count="multiple", file_types=["image"])
+                files = gr.File(label="Your images", file_count="multiple", file_types=["image"])
+                gr.HTML(f"<div class='hint'>Up to {MAX_FILES_H} images per run with Hemlock, {MAX_FILES_M} with Mist.</div>")
             with gr.Column(scale=2, min_width=320):
                 with gr.Group(visible=True) as h_main:
                     h_strength = gr.Radio(list(H_STRENGTH), value="Light", label="Strength",
@@ -584,7 +575,7 @@ def build():
         progress = gr.HTML()
         result = gr.HTML()
         with gr.Group(visible=False) as dl_group:
-            zip_file = gr.File(label="Download everything (zip)")
+            zip_file = gr.File(label="Download everything (zip)", elem_id="zipbox")
 
         def switch(m):
             h = m == METHOD_H
