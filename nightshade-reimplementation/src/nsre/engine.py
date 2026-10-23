@@ -79,6 +79,28 @@ class Engine:
             tok = proc(text=texts, return_tensors="pt", padding=True)
             return model.get_text_features(**tok).float().numpy()
 
+    def unload(self) -> None:
+        """Drop every model so VRAM and RAM are returned (the next shade() reloads from disk)."""
+        import ctypes
+        import gc
+
+        for name in ("_encode", "_perceptual", "_pipe", "_blip", "_clip", "_pool_emb"):
+            if hasattr(self, name):
+                setattr(self, name, None)
+        self._loaded = False
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+        try:  # glibc: give freed heap pages back to the OS so RSS really drops
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except OSError:
+            pass
+
+    @property
+    def loaded(self) -> bool:
+        return self._loaded
+
     # ------------------------------------------------------------------ concept / target
     def detect_concept(self, img: Image.Image) -> str:
         if not self._blip:
@@ -129,6 +151,7 @@ class Engine:
         on_progress: Optional[Progress] = None,
         reset_exif_orientation: bool = False,
         write_json: bool = True,
+        description: Optional[str] = None,
     ) -> ShadeResult:
         self.load()
         t0 = time.time()
@@ -142,6 +165,8 @@ class Engine:
         stage("Reading the image")
         concept = tag or self.detect_concept(full)
         tgt_name = target or self.pick_target(concept)
+        # `description` may be a string or a function of the detected concept (used for the file metadata)
+        desc = description(concept) if callable(description) else description
 
         def run_pipeline(**kw):
             with torch.no_grad():
@@ -164,7 +189,7 @@ class Engine:
         stage("Saving")
         os.makedirs(out_dir, exist_ok=True)
         out = imageio.save_image(final, path, out_dir, params.protection_level, exif=exif,
-                                 reset_exif_orientation=reset_exif_orientation)
+                                 reset_exif_orientation=reset_exif_orientation, description=desc)
         secs = time.time() - t0
         if write_json:
             write_manifest(out + ".json", {

@@ -4,4 +4,14 @@ __pycache__
 research
 *.md
 unraid
-
+mist/eval
+mist/assets
+mist/docs
+mist/ldm
+mist/scripts
+mist/output
+mist/stable-diffusion
+mist/.github
+mist/unraid
+mist/docker
+mist/*.ipynb

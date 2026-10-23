@@ -1,4 +1,4 @@
-﻿"""Image I/O and preprocessing.
+"""Image I/O and preprocessing.
 
 Mirrors utils.load_img / reduce_quality / contain_image / img2tensor / tensor2img and
 opt.Optimizer.save_image from Nightshade 1.1 (evidence E-030..E-037). Independently written.
@@ -117,7 +117,7 @@ def output_name(og_path: str, level: str, tag: str = "V1", is_target: bool = Fal
 
 
 def save_image(img: Image.Image, og_path: str, out_dir: str, level: str, exif=None,
-               reset_exif_orientation: bool = False) -> str:
+               reset_exif_orientation: bool = False, description: Optional[str] = None) -> str:
     """PNG when the original path ends in '.png' (case-sensitive, like the original), else JPEG q=100.
 
     The original keeps the source EXIF verbatim even though load_img already rotated the pixels, so an
@@ -127,6 +127,18 @@ def save_image(img: Image.Image, og_path: str, out_dir: str, level: str, exif=No
     out = os.path.join(out_dir, output_name(og_path, level))
     fmt = "PNG" if og_path.endswith(".png") else "JPEG"
     kwargs = {"quality": 100}
+    if description:
+        # Optional (not in the original): store the poison tag / ALT text in the file. Most websites strip
+        # metadata, so this does not replace putting the text in the post's ALT field.
+        if fmt == "PNG":
+            from PIL import PngImagePlugin
+
+            info = PngImagePlugin.PngInfo()
+            info.add_text("Description", description)
+            kwargs["pnginfo"] = info
+        else:
+            exif = exif if exif is not None else Image.Exif()
+            exif[0x010E] = description  # EXIF ImageDescription
     if exif is not None:
         if reset_exif_orientation and 0x0112 in exif:
             exif[0x0112] = 1

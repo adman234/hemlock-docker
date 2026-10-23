@@ -1,7 +1,7 @@
 """Build-time checks.
 
 default:  start the app without the model download and make sure the page renders.
---vae:    download the real Stable Diffusion VAE file the app will use and make sure every weight loads.
+--vae:    download the real Stable Diffusion VAE file the app uses and make sure every weight loads.
           (This is the check that would have caught diffusers 0.14 not understanding the current VAE format.)
 """
 import os
@@ -37,8 +37,8 @@ def vae():
     from huggingface_hub import snapshot_download
 
     repo = os.environ.get("HEMLOCK_SD_REPO", "stable-diffusion-v1-5/stable-diffusion-v1-5")
-    d = snapshot_download(repo, local_dir="/tmp/vae-smoke", allow_patterns=["vae/config.json", "vae/diffusion_pytorch_model.fp16.safetensors"])
-    m, info = AutoencoderKL.from_pretrained(d, subfolder="vae", variant="fp16", output_loading_info=True)
+    d = snapshot_download(repo, local_dir="/tmp/vae-smoke", allow_patterns=["vae/config.json", "vae/diffusion_pytorch_model.safetensors"])
+    m, info = AutoencoderKL.from_pretrained(d, subfolder="vae", output_loading_info=True)
     assert not info["missing_keys"], f"VAE weights missing (would be random): {info['missing_keys'][:5]}"
     z = m.encode(torch.randn(1, 3, 64, 64)).latent_dist.mean
     assert z.shape == (1, 4, 8, 8) and torch.isfinite(z).all(), "VAE produced bad output"

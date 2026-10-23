@@ -1,23 +1,27 @@
 # Torch is installed separately in the Dockerfile from the cu128 index (Blackwell cards need it).
-# These are the same library versions as adman234/mist-docker, so the two projects can share one environment.
-# diffusers 0.14 (the version inside Nightshade 1.1) cannot read the attention weight names in the current
-# Stable Diffusion VAE files: it either raises "keys are missing" or, without accelerate, silently leaves
-# those weights random. 0.25.1 reads both naming schemes.
+# One environment for both methods. It is mist-docker's set (so Mist keeps working exactly as before) plus what Hemlock
+# adds (lpips, nltk, einops). wandb is dropped: only Mist's training CLI imports it, the attack code does not.
+# diffusers 0.14 (the version inside Nightshade 1.1) cannot read the attention weight names in the current Stable
+# Diffusion VAE files, so Hemlock runs on 0.25.1 (E-103 in research/evidence.md).
 numpy==1.26.4
 diffusers==0.25.1
 transformers==4.36.2
 huggingface_hub==0.25.2
 accelerate==0.25.0
 safetensors==0.4.5
+datasets==2.16.1
 tokenizers<0.19
+ftfy
+scipy
+fire
+tqdm
+colorama
+nvidia-ml-py
+tensorboard
+Pillow
 lpips==0.1.4
 nltk==3.8.1
 einops
-ftfy
-regex
-scipy
-tqdm
-Pillow
 gradio==4.44.1
 pydantic==2.10.6
 pyarrow==17.0.0
