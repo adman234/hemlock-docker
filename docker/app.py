@@ -539,7 +539,7 @@ def build():
                                "Mist adds noise that disrupts copying an artist's style (several minutes per image).")
         with gr.Row():
             with gr.Column(scale=3, min_width=320):
-                files = gr.File(label="Your images", file_count="multiple", file_types=["image"])
+                files = gr.File(label="Your images", file_count="multiple", file_types=["image"], height=380)
                 gr.HTML(f"<div class='hint'>Up to {MAX_FILES_H} images per run with Hemlock, {MAX_FILES_M} with Mist.</div>")
             with gr.Column(scale=2, min_width=320):
                 with gr.Group(visible=True) as h_main:
