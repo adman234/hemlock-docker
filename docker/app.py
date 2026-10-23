@@ -216,12 +216,15 @@ def make_preview(orig_path, misted_path, final, key, name):
 
 
 # Inline handlers on purpose: Gradio sets HTML component content with innerHTML, which never runs <script> tags.
-_HOLD_ON = "this.classList.add('holding');try{this.setPointerCapture(event.pointerId)}catch(e){}"
+# Hold handlers do nothing in slider mode: otherwise the stage would capture the pointer away from the slider
+_GUARD = "if(this.closest('.cmp').dataset.mode!=='hold')return;"
+_HOLD_ON = _GUARD + "this.classList.add('holding');try{this.setPointerCapture(event.pointerId)}catch(e){}"
 _HOLD_OFF = "this.classList.remove('holding')"
-_KEY_ON = "if(event.key===' '||event.key==='Enter'){event.preventDefault();this.classList.add('holding')}"
+_KEY_ON = _GUARD + "if(event.key===' '||event.key==='Enter'){event.preventDefault();this.classList.add('holding')}"
 _KEY_OFF = "if(event.key===' '||event.key==='Enter'){this.classList.remove('holding')}"
 _MODE = (
     "var c=this.closest('.cmp');var s=c.dataset.mode==='slide';c.dataset.mode=s?'hold':'slide';"
+    "c.querySelector('.stage').classList.remove('holding');"
     "this.textContent=s?'Switch to slider':'Switch to hold';"
     "c.querySelector('.hint').textContent=s?'Press and hold the image to see the original':'Drag the slider: original on the left'"
 )
@@ -281,10 +284,10 @@ button.lg,button.primary{min-height:52px;font-size:1.05rem}
 .stage:focus-visible{box-shadow:0 0 0 3px #7c5cff88}
 .stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
 .img-o{opacity:0}
-.stage.holding .img-o{opacity:1}
+.cmp[data-mode=hold] .stage.holding .img-o{opacity:1}
 .tag{position:absolute;left:8px;top:8px;padding:3px 10px;border-radius:999px;font-size:.78rem;color:#fff;background:#000a;pointer-events:none}
 .tag-o{opacity:0}
-.stage.holding .tag-o{opacity:1}.stage.holding .tag-m{opacity:0}
+.cmp[data-mode=hold] .stage.holding .tag-o{opacity:1}.cmp[data-mode=hold] .stage.holding .tag-m{opacity:0}
 .range,.divider{display:none}
 .cmp[data-mode=slide] .img-o{opacity:1;clip-path:inset(0 calc(100% - var(--pos,50%)) 0 0)}
 .cmp[data-mode=slide] .tag-o{opacity:1;left:8px}.cmp[data-mode=slide] .tag-m{left:auto;right:8px}
