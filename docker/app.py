@@ -706,7 +706,7 @@ def run(method, files, h_strength, h_quality, tag, target, seed, template, write
         REG[job.id] = job
         QUEUE.append(job)
         QCOND.notify()
-    return job.id
+    return job.id, None  # None empties the upload box: the files now live in the job
 
 
 def build():
@@ -772,7 +772,7 @@ def build():
 
         method.change(switch, method, [h_main, m_main, h_more, m_more], show_progress="hidden")
         inputs = [method, files, h_strength, h_quality, tag, target, seed, template, write_meta, m_strength, m_mode, m_passes, m_prompt, m_keep]
-        go.click(run, inputs, [jobid], show_progress="hidden", trigger_mode="once").then(
+        go.click(run, inputs, [jobid, files], show_progress="hidden", trigger_mode="once").then(
             None, [jobid], None, js="(id) => { HM.added(id) }")
         stop.click(None, None, None, js="() => { HM.cancelAll() }")
     return demo
