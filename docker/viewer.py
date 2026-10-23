@@ -47,7 +47,9 @@ button.lg,button.primary{min-height:52px;font-size:1.05rem}
   display:inline-flex;align-items:center}
 .cmp-dl{background:#10b981;border-color:#10b981;color:#fff;font-weight:600;gap:.45em}
 .cmp-dl svg{flex:none}
-.copy{min-height:32px;padding:3px 10px;margin-left:8px;font-size:.8rem}
+.copy{min-height:40px;padding:8px 14px;font-size:.9rem}
+.cmp-clear{min-height:32px;padding:4px 10px;font-size:.8rem;border-color:#d6336c88;color:#d6336c;background:#d6336c18}
+.cmp-clear:hover{background:#d6336c33}
 .stage{position:relative;margin:10px 0;border-radius:10px;overflow:hidden;aspect-ratio:var(--ar);width:100%;max-height:75vh;
   background:#0003;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;outline:none}
 .stage:focus-visible{box-shadow:0 0 0 3px #10b98188}
@@ -269,14 +271,16 @@ def pill(kind: str, text: str) -> str:
     return f"<span class='pill {kind}'>{e(text)}</span>"
 
 
-def card(it: dict) -> str:
+def card(it: dict, clear: bool = False) -> str:
     """One before/after card. `it` keys: name, full, orig_full, mist, orig, w, h, download, tag, target, m, seconds."""
     m = it.get("m")
     chips = []
-    tagchip = ""
+    tagchip, copybtn = "", ""
+    clearbtn = "<button type=\"button\" class=\"job-clear cmp-clear\" title=\"Remove this run from the page\">Clear</button>" if clear else ""
     if it.get("tag") is not None:
         alt = it.get("alt") or it["tag"]
-        tagchip = f"<div class='chips'><span class='chip'>Tag: <b>{e(it['tag'])}</b><button type='button' class='copy' data-text=\"{e(alt)}\">Copy ALT</button></span></div>"
+        tagchip = f"<div class='chips'><span class='chip'>Tag: <b>{e(it['tag'])}</b></span></div>"
+        copybtn = f"<button type='button' class='copy' data-text=\"{e(alt)}\">Copy ALT</button>"
     if it.get("target"):
         chips.append(f"<span class='chip'>Pushes towards: <b>{e(it['target'])}</b></span>")
     if m:
@@ -289,7 +293,8 @@ def card(it: dict) -> str:
     return f"""
 <div class="cmp" data-mode="hold" style="--ar:{it['w']} / {it['h']}">
   <div class="cmp-head"><span class="cmp-name">{e(it['name'])}</span>
-    <span class="cmp-btns"><button type="button" class="cmp-full" data-name="{e(it['name'])}" data-prot="file={e(it['full'])}" data-orig="file={e(it['orig_full'])}">Full size</button>
+    <span class="cmp-btns">{clearbtn}<button type="button" class="cmp-full" data-name="{e(it['name'])}" data-prot="file={e(it['full'])}" data-orig="file={e(it['orig_full'])}">Full size</button>
+    <button type="button" class="cmp-mode">Switch to slider</button>
     <a class="cmp-dl" href="file={e(it['full'])}" download="{e(it['download'])}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Download</a></span></div>
   <div class="stage" tabindex="0" role="img" aria-label="Protected image. Press and hold, or hold Space, to see the original." oncontextmenu="return false">
     <img class="img-m" src="file={e(it['mist'])}" alt="" draggable="false">
@@ -299,11 +304,11 @@ def card(it: dict) -> str:
     <div class="divider"></div>
   </div>
   <div class="cmp-foot"><span class="hint">Press and hold the image to see the original</span>
-    <button type="button" class="cmp-mode">Switch to slider</button></div>
+    {copybtn}</div>
   {tagchip}
   <details class="stats"><summary>Stats</summary><div class="chips">{''.join(chips)}</div></details>
 </div>"""
 
 
 def cards(items) -> str:
-    return '<div class="cmp-list">' + "".join(card(i) for i in items) + "</div>"
+    return '<div class="cmp-list">' + "".join(card(i, clear=(n == 0)) for n, i in enumerate(items)) + "</div>"

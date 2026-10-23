@@ -658,7 +658,7 @@ def job_view(job: Job):
         r, note = st.result, ""
         if r["failures"]:
             note = viewer.pill("bad", "Skipped: " + "; ".join(f"{a} ({b})" for a, b in r["failures"])[:300])
-        body = note + viewer.cards(r["items"]) + viewer.zip_button(r["zip"]) + clear
+        body = note + viewer.cards(r["items"]) + (viewer.zip_button(r["zip"]) if len(r["items"]) > 1 else "")
     return {"state": job.state, "html": head + body, "ahead": ahead, "eta": eta, "pct": round(st.frac * 100) if job.state == "running" else 0}
 
 
