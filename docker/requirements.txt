@@ -19,3 +19,5 @@ wandb
 Pillow
 gradio==4.44.1
 pydantic==2.10.6
+pyarrow==17.0.0
+pandas<2.3
