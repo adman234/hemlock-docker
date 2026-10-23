@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nsre"
+version = "0.1.0"
+description = "Independent, evidence-driven reimplementation of the Nightshade 1.1 shading pipeline"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "pillow",
+  "torch",
+  "torchvision",
+  "einops",
+]
+
+[project.optional-dependencies]
+models = [
+  "diffusers>=0.14",
+  "transformers>=4.29",
+  "lpips",
+  "nltk",
+  "accelerate",
+  "safetensors",
+]
+test = ["pytest"]
+
+[project.scripts]
+nsre = "nsre.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "models: needs downloaded model weights, skipped by default",
+  "reference: needs reference outputs produced by the original application",
+]
