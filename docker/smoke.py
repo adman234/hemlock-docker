@@ -46,6 +46,9 @@ def vae():
 
 
 if __name__ == "__main__":
+    if "--vae-only" in sys.argv:  # used while building the base image, where the app is not there yet
+        vae()
+        sys.exit(0)
     page()
     if "--vae" in sys.argv:
         vae()

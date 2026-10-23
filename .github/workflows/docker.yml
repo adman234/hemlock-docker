@@ -3,6 +3,8 @@ name: docker
 # Two variants are built from every push:
 #   default (CUDA 12.8, GTX 16xx/RTX 20xx and newer, up to RTX 50xx)
 #   pascal  (CUDA 12.6, also GTX 10xx; not for RTX 50xx)
+# Each is built from a base image (Dockerfile.base: PyTorch and dependencies) that is only rebuilt when its inputs change,
+# so most pushes build just the small app layers and users only download those.
 # main         -> :latest          and :pascal
 # other branch -> :<branch>        and :<branch>-pascal
 # tag v1.2.3   -> :1.2.3           and :1.2.3-pascal
@@ -56,6 +58,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The base image (PyTorch plus every dependency) only changes when its inputs do. It is published under a tag that
+      # includes a hash of those inputs, so it is built once and reused by every later push (and by users: same layers).
+      - id: base
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
+          ref="$repo:base-${{ matrix.cuda }}-${{ hashFiles('Dockerfile.base', 'docker/requirements.txt', 'docker/smoke.py') }}"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"; echo "Base image $ref already published, reusing it"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"; echo "Base image $ref not found, building it"
+          fi
+
+      - name: Build and publish the base image
+        if: steps.base.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.base
+          push: true
+          build-args: |
+            TORCH_CUDA=${{ matrix.cuda }}
+          tags: ${{ steps.base.outputs.ref }}
+
       - id: meta
         uses: docker/metadata-action@v5
         with:
@@ -74,8 +100,8 @@ jobs:
           context: .
           push: true
           build-args: |
+            BASE_IMAGE=${{ steps.base.outputs.ref }}
             GIT_SHA=${{ github.sha }}
-            TORCH_CUDA=${{ matrix.cuda }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 

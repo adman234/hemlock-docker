@@ -1,0 +1,49 @@
+# Base image: PyTorch, the CUDA libraries and every Python dependency. It changes rarely, so CI publishes it once
+# (ghcr.io/<owner>/hemlock-docker:base-<cuda>-<hash>) and the app image (Dockerfile) is built on top of it in about a minute.
+# The app image reuses these exact layers, so updating a container only downloads the small app layers.
+# cu128 wheels cover Turing up to Blackwell (RTX 50xx). Pascal cards: --build-arg TORCH_CUDA=cu126
+FROM python:3.11-slim-bookworm
+
+ARG TORCH_VERSION=2.8.0
+ARG TORCHVISION_VERSION=0.23.0
+ARG TORCH_CUDA=cu128
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DATA_DIR=/data \
+    HF_HOME=/data/cache/huggingface \
+    TORCH_HOME=/data/cache/torch \
+    NLTK_DATA=/data/cache/nltk \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    WANDB_DISABLED=true \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends gosu tini ca-certificates libgl1 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Torch and the trimming happen in ONE layer: files deleted in a later layer would still be stored in this one.
+# Trimmed: torch.compile's triton and the C/C++ headers shipped inside the CUDA wheels (nothing here compiles).
+# Every CUDA runtime library stays, because torch links them at import; the checks further down fail the build otherwise.
+RUN pip install "torch==${TORCH_VERSION}" "torchvision==${TORCHVISION_VERSION}" \
+      --index-url "https://download.pytorch.org/whl/${TORCH_CUDA}" \
+ && pip uninstall -y triton \
+ && SP="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" \
+ && rm -rf "$SP"/nvidia/*/include "$SP"/torch/include "$SP"/torch/test \
+ && find "$SP" -name '__pycache__' -type d -prune -exec rm -rf {} + ; \
+    du -sh "$SP" | tail -1
+
+COPY docker/requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt \
+ && pip install setuptools
+
+# Fail the build if the libraries stop working together or if pruning removed something torch needs, and check that the
+# real Stable Diffusion VAE file loads with every weight present (downloads about 330 MB at build time, removed again).
+COPY docker/smoke.py /tmp/smoke.py
+RUN python -c "import torch, torchvision; print('torch', torch.__version__, 'cudnn', torch.backends.cudnn.version()); torch.zeros(2).sum()" \
+ && python -c "import diffusers, transformers, lpips, nltk, gradio; print('library imports ok')" \
+ && python /tmp/smoke.py --vae-only \
+ && rm -rf /tmp/vae-smoke /tmp/smoke.py /root/.cache

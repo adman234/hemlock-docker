@@ -110,6 +110,7 @@ It contains no Nightshade code or weights, and it's not affiliated with the Nigh
 | Path | What's there |
 |---|---|
 | `docker/` | The web app, model manager, Hemlock worker, entrypoint and smoke test |
+| `Dockerfile.base`, `Dockerfile` | The image is built in two parts: a base with PyTorch and the libraries (rebuilt rarely), then the app on top of it. Updating a container only downloads the small app part. |
 | `mist/` | The mist-docker repository, merged in with its history (Apache-2.0, see `mist/LICENSE`) |
 | `nightshade-reimplementation/` | The `nsre` library and command line tool, with tests |
 | `research/` | Reverse-engineering notes, experiments and the parity report |
