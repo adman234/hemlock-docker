@@ -30,6 +30,8 @@ With plain Docker:
 docker run -d --name hemlock --gpus all -p 7861:7860 -v /path/to/appdata:/data ghcr.io/adman234/hemlock-docker:latest
 ```
 
+Older cards (GTX 10 series, Pascal) need the `pascal` tag instead of `latest`: `ghcr.io/adman234/hemlock-docker:pascal`. It is built from the same code with CUDA 12.6, and it is updated whenever `latest` is. Don't use it on RTX 50 series cards. On Unraid, change the Repository field to that tag. An 8 GB card should handle Hemlock but probably not Mist.
+
 The first start downloads Stable Diffusion 1.5 (about 5 GB, shared by both methods) and two small captioning models. The image itself is about 4.4 GB to pull, most of it PyTorch and the CUDA libraries.
 
 ### Settings

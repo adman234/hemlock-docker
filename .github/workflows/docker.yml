@@ -1,8 +1,11 @@
 name: docker
 
-# main         -> ghcr.io/<owner>/hemlock-docker:latest
-# other branch -> ghcr.io/<owner>/hemlock-docker:<branch>
-# tag v1.2.3   -> ghcr.io/<owner>/hemlock-docker:1.2.3
+# Two variants are built from every push:
+#   default (CUDA 12.8, GTX 16xx/RTX 20xx and newer, up to RTX 50xx)
+#   pascal  (CUDA 12.6, also GTX 10xx; not for RTX 50xx)
+# main         -> :latest          and :pascal
+# other branch -> :<branch>        and :<branch>-pascal
+# tag v1.2.3   -> :1.2.3           and :1.2.3-pascal
 on:
   push:
     branches: ['**']
@@ -23,6 +26,16 @@ concurrency:
 
 jobs:
   image:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: default
+            cuda: cu128
+            suffix: ''
+          - variant: pascal
+            cuda: cu126
+            suffix: '-pascal'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -47,11 +60,14 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          flavor: |
+            latest=false
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch,enable=${{ github.ref_name != github.event.repository.default_branch }}
-            type=semver,pattern={{version}}
-            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref_name == github.event.repository.default_branch && matrix.variant == 'default' }}
+            type=raw,value=pascal,enable=${{ github.ref_name == github.event.repository.default_branch && matrix.variant == 'pascal' }}
+            type=ref,event=branch,suffix=${{ matrix.suffix }},enable=${{ github.ref_name != github.event.repository.default_branch }}
+            type=semver,pattern={{version}},suffix=${{ matrix.suffix }}
+            type=sha,format=short,suffix=${{ matrix.suffix }}
 
       - uses: docker/build-push-action@v6
         with:
@@ -59,6 +75,7 @@ jobs:
           push: true
           build-args: |
             GIT_SHA=${{ github.sha }}
+            TORCH_CUDA=${{ matrix.cuda }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
