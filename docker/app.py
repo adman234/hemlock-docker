@@ -41,7 +41,7 @@ def _env_float(name, alias, default):
 
 
 MAX_FILES_H = int(os.environ.get("HEMLOCK_MAX_FILES", "20"))
-MAX_FILES_M = int(os.environ.get("MIST_MAX_FILES", "4"))
+MAX_FILES_M = int(os.environ.get("MIST_MAX_FILES", "20"))
 MAX_SIDE_M = int(os.environ.get("MIST_MAX_SIDE", "4096"))
 QUEUE_MAX = int(os.environ.get("HEMLOCK_QUEUE_MAX", "20"))
 JOB_TTL = int(_env_float("HEMLOCK_JOB_TTL_MINUTES", "MIST_JOB_TTL_MINUTES", 60) * 60)
@@ -71,6 +71,36 @@ nothing replaces keeping your originals and posting responsibly.</p>
 about {max(1, JOB_TTL // 60)} minutes. Please do not upload anything you are not allowed to share.</p>
 </div>
 """
+INFO_HTML = f"""
+<div class='about'>
+<p><b>Methods</b></p>
+<ul>
+<li><b>Hemlock</b> (poison, Nightshade-style): about 20 s to 1.5 min per image. Pushes your image towards a different concept so an AI that <i>trains</i> on many such
+images learns the wrong thing. Gives each image a tag to put in its ALT text.</li>
+<li><b>Mist v2</b> (anti style-copying): several minutes per image. Adds noise aimed at tools that imitate an artist's style, so imitations come out scrambled.</li>
+</ul>
+<p><b>Models used</b></p>
+<ul>
+<li><b>Stable Diffusion 1.5</b> (about 5 GB, downloaded once): the image model both methods target. Hemlock also uses it to draw a "target" picture of the other concept.</li>
+<li><b>BLIP</b> and <b>CLIP</b> (Hemlock only, small): BLIP describes your image, CLIP picks the main word (the tag) and a different concept to push towards.</li>
+<li><b>LPIPS</b> (Hemlock only): a perceptual yardstick that keeps the changes hard to see.</li>
+</ul>
+<p><b>Hemlock settings</b></p>
+<ul>
+<li><b>Strength</b>: how much each pixel may change. Light is nearly invisible (about 6 out of 255), Balanced shows faint grain when zoomed in (about 12), Strong can show texture on flat areas (about 20) and takes about twice as long.</li>
+<li><b>Render quality</b>: how long it optimises. Fast 100 passes, Better 150, Thorough 300, Maximum 500, with more random crops tested per pass as it goes up, so the effect should hold up better after cropping or resizing.</li>
+<li><b>Poison tag</b> (one image only), <b>Push towards</b>, <b>ALT text template</b>, <b>metadata</b>, <b>seed</b>: in More options. Leave them empty for automatic choices. A seed makes a run repeatable.</li>
+</ul>
+<p><b>Mist settings</b></p>
+<ul>
+<li><b>Strength</b>: how far pixels may move (6, 12 or 18 out of 255). Stronger protects more and shows more.</li>
+<li><b>Mode</b>: 1 targets texture (default), 2 adds meaning as well as texture, 3 is aimed at personalisation tools like DreamBooth.</li>
+<li><b>Passes</b>: more passes take longer and protect somewhat better. <b>Keep the original size</b> returns the full image instead of a crop.</li>
+</ul>
+<p>Good starting point: Hemlock with Light and Better. Times are rough and depend on the GPU and the queue. Neither method is a guarantee.</p>
+</div>
+"""
+
 METHOD_H = "Hemlock (poison, Nightshade-style)"
 METHOD_M = "Mist v2 (anti style-copying)"
 H_STRENGTH = {"Light": 0, "Balanced": 1, "Strong": 2}
@@ -168,7 +198,7 @@ class JobState:
             raise Cancelled()
 
 
-CURRENT = {"job": None}
+CURRENT = {}  # session hash -> JobState, so Stop only ever cancels the caller's own job
 
 
 def sweep_old_jobs():
@@ -449,16 +479,16 @@ def status_text():
 
 
 def queued_msg():
-    return viewer.progress_bar(0, "Waiting for a free slot", "Another run may be in progress. It starts automatically."), "", gr.update(), "", gr.update(visible=False)
+    return viewer.progress_bar(0, "Waiting for a free slot", "Another run may be in progress. It starts automatically."), "", gr.update(), gr.update(visible=False)
 
 
-def stop_job():
-    job = CURRENT["job"]
+def stop_job(request: gr.Request):
+    job = CURRENT.get(request.session_hash)
     if job:
         job.cancel.set()
 
 
-def run(method, files, h_strength, h_quality, tag, target, seed, template, write_meta, m_strength, m_mode, m_passes, m_prompt, m_keep):
+def run(method, files, h_strength, h_quality, tag, target, seed, template, write_meta, m_strength, m_mode, m_passes, m_prompt, m_keep, request: gr.Request):
     if not _setup["ready"]:
         raise gr.Error(_setup["error"] or _setup["msg"] + ". Try again in a few minutes.")
     if not files:
@@ -470,28 +500,29 @@ def run(method, files, h_strength, h_quality, tag, target, seed, template, write
          "seed": int(seed) if seed not in (None, "") else None, "template": template or "{tag}", "write_meta": bool(write_meta),
          "m_strength": m_strength, "m_mode": m_mode, "m_passes": m_passes, "m_prompt": m_prompt or "", "m_keep": bool(m_keep)}
     st = JobState()
-    CURRENT["job"] = st
+    sid = request.session_hash
+    CURRENT[sid] = st
     th = threading.Thread(target=_worker, args=(st, method, files, o), daemon=True)
     th.start()
-    yield viewer.progress_bar(0, "Starting"), "", gr.update(), "", gr.update(visible=False)
+    yield viewer.progress_bar(0, "Starting"), "", gr.update(), gr.update(visible=False)
     last = None
     while th.is_alive():
         time.sleep(0.5)
         bar = viewer.progress_bar(st.frac, st.message, st.sub)
         if bar != last:
             last = bar
-            yield bar, gr.update(), gr.update(), gr.update(), gr.update()
+            yield bar, gr.update(), gr.update(), gr.update()
     th.join()
-    CURRENT["job"] = None
+    CURRENT.pop(sid, None)
     if st.error:
         kind = "wait" if st.error == "Stopped." else "bad"
-        yield viewer.pill(kind, st.error), "", gr.update(), "", gr.update(visible=False)
+        yield viewer.pill(kind, st.error), "", gr.update(), gr.update(visible=False)
         return
     r = st.result
     note = ""
     if r["failures"]:
         note = viewer.pill("bad", "Skipped: " + "; ".join(f"{a} ({b})" for a, b in r["failures"])[:300])
-    yield note, viewer.cards(r["items"]), r["zip"], r["alt"], gr.update(visible=True)
+    yield note, viewer.cards(r["items"]), r["zip"], gr.update(visible=True)
 
 
 def build():
@@ -509,7 +540,9 @@ def build():
         )
         with gr.Accordion("About this project: what is happening to my image?", open=False):
             gr.HTML(ABOUT_HTML)
-        status = gr.HTML(status_text())
+        with gr.Accordion("Info: what the methods, models and settings mean", open=False):
+            gr.HTML(INFO_HTML)
+        gr.HTML(status_text(), elem_id="status")
         method = gr.Radio([METHOD_H, METHOD_M], value=METHOD_H, label="Method",
                           info="Hemlock poisons what AI learns from the image (Nightshade-style, about 20 s per image). "
                                "Mist adds noise that disrupts copying an artist's style (several minutes per image).")
@@ -552,7 +585,6 @@ def build():
         result = gr.HTML()
         with gr.Group(visible=False) as dl_group:
             zip_file = gr.File(label="Download everything (zip)")
-            alt_box = gr.Textbox(label="ALT text to paste when you post (one line per image)", lines=4, show_copy_button=True, interactive=False)
 
         def switch(m):
             h = m == METHOD_H
@@ -560,12 +592,9 @@ def build():
 
         method.change(switch, method, [h_main, m_main, h_more, m_more], show_progress="hidden")
         inputs = [method, files, h_strength, h_quality, tag, target, seed, template, write_meta, m_strength, m_mode, m_passes, m_prompt, m_keep]
-        go.click(queued_msg, None, [progress, result, zip_file, alt_box, dl_group], queue=False, show_progress="hidden").then(
-            run, inputs, [progress, result, zip_file, alt_box, dl_group], show_progress="hidden", trigger_mode="once")
+        go.click(queued_msg, None, [progress, result, zip_file, dl_group], queue=False, show_progress="hidden").then(
+            run, inputs, [progress, result, zip_file, dl_group], show_progress="hidden", trigger_mode="once")
         stop.click(stop_job, None, None, queue=False, show_progress="hidden")
-        demo.load(status_text, None, status, show_progress="hidden")
-        timer = gr.Timer(5)
-        timer.tick(status_text, None, status, show_progress="hidden")
     return demo
 
 
@@ -576,6 +605,17 @@ if __name__ == "__main__":
     threading.Thread(target=_sweeper, daemon=True).start()
     user, pw = os.environ.get("HEMLOCK_USERNAME", ""), os.environ.get("HEMLOCK_PASSWORD", "")
     auth = (user or "hemlock", pw) if pw else None
-    build().queue(default_concurrency_limit=1, max_size=QUEUE_MAX).launch(
-        server_name="0.0.0.0", server_port=PORT, auth=auth, allowed_paths=[str(JOBS)], show_api=False,
-    )
+    import uvicorn
+    from fastapi import FastAPI
+
+    api = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+    @api.get("/hm_status")
+    def hm_status():
+        return {"html": status_text()}
+
+    demo = build()
+    demo.queue(default_concurrency_limit=1, max_size=QUEUE_MAX)
+    demo.show_api = False
+    app = gr.mount_gradio_app(api, demo, path="/", auth=auth, allowed_paths=[str(JOBS)])
+    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning")

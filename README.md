@@ -13,7 +13,7 @@ Not affiliated with the Nightshade or Mist teams.
 
 ## Features
 
-- Bulk upload (Hemlock 20 per run, Mist 4 per run by default), per-image download, and a zip of everything
+- Bulk upload (20 images per run for either method by default), per-image download, and a zip of everything
 - Before/after view: press and hold, or a slider. On desktop a **Full size** button opens the images at native resolution with Fit and 100% zoom
 - One live progress bar, a Stop button, a job queue, and automatic cleanup of uploads
 - Models are loaded only while needed. Hemlock's engine runs in its own process that is shut down after an idle timeout, so an idle
@@ -46,7 +46,7 @@ docker run -d --name hemlock --gpus all -p 7861:7860 -v /path/to/appdata:/data g
 | `HEMLOCK_IDLE_UNLOAD_MINUTES` | 10 | Unload models after this many idle minutes. 0 unloads after every job, -1 never. |
 | `HEMLOCK_JOB_TTL_MINUTES` | 60 | Delete uploads and results after this long (checked every 5 minutes). |
 | `HEMLOCK_PASSWORD`, `HEMLOCK_USERNAME` | empty | Optional login (username defaults to `hemlock`). |
-| `HEMLOCK_MAX_FILES` / `MIST_MAX_FILES` | 20 / 4 | Images per run for each method. |
+| `HEMLOCK_MAX_FILES` / `MIST_MAX_FILES` | 20 / 20 | Images per run for each method. |
 | `MIST_MAX_SIDE`, `MIST_CLASS_IMAGES` | 4096 / 20 | Mist upload size cap, and its first-run comparison images. |
 | `HEMLOCK_QUEUE_MAX` | 20 | How many runs may wait. |
 | `HEMLOCK_CONCEPT_MODELS` | 1 | 0 skips the two tagging models (type the tag yourself). |

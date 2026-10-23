@@ -13,6 +13,7 @@ CSS = """
 button.lg,button.primary{min-height:52px;font-size:1.05rem}
 #hero h1{margin:.2em 0 .1em;font-size:1.9rem}
 #hero p{margin:.2em 0;opacity:.8}
+#status{min-height:2.8rem;overflow-anchor:none}
 .note{border:1px solid var(--border-color-primary,#8884);border-left:4px solid #10b981;border-radius:10px;padding:10px 14px;margin:10px 0;background:var(--background-fill-secondary,#8881);font-size:.92rem;line-height:1.45}
 .about{font-size:.92rem;line-height:1.5}.about p,.about ul{margin:.5em 0}.about li{margin:.35em 0}
 .pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85rem;margin:6px 6px 6px 0}
@@ -58,10 +59,11 @@ button.lg,button.primary{min-height:52px;font-size:1.05rem}
 .fs-title{flex:1;min-width:140px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fs-bar button{padding:8px 14px;min-height:40px;border-radius:10px;border:1px solid #fff4;background:#fff1;color:#fff;font-size:.9rem;cursor:pointer}
 .fs-bar button.on{background:#10b981;border-color:#10b981}
-.fs-body{flex:1;overflow:auto;display:grid;place-items:center;padding:8px}
+.fs-body{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:8px}
+#hm-full[data-fit=full] .fs-body{overflow:auto;display:block}
 .fs-stage{position:relative;display:inline-block;line-height:0;user-select:none;-webkit-user-select:none;cursor:pointer}
 .fs-stage img{display:block;-webkit-user-drag:none}
-.fs-stage[data-fit=fit] .fs-m{max-width:calc(100vw - 16px);max-height:calc(100vh - 80px)}
+.fs-stage[data-fit=fit] .fs-m{max-width:var(--fs-w,100%);max-height:var(--fs-h,100%)}
 .fs-stage[data-fit=full] .fs-m{max-width:none;max-height:none}
 .fs-stage .fs-o{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none}
 .fs-stage[data-mode=hold].holding .fs-o{opacity:1}
@@ -79,7 +81,7 @@ button.lg,button.primary{min-height:52px;font-size:1.05rem}
   .cmp{padding:16px}
 }
 @media (min-width:1700px){html{font-size:18px}}
-@media (max-width:520px){#hero h1{font-size:1.6rem}.cmp-name{max-width:45%}}
+@media (max-width:520px){#status{min-height:4.8rem}#hero h1{font-size:1.6rem}.cmp-name{max-width:45%}}
 """
 
 # One script, delegated events. Inline in <head>.
@@ -128,25 +130,45 @@ HEAD = """
     var fb2 = closest(ev.target, '.cmp-full'); if (fb2){ HM.fsOpen(fb2.dataset.name, fb2.dataset.prot, fb2.dataset.orig); return }
     if (closest(ev.target, '.fs-close')){ HM.fsClose(); return }
     var fm = closest(ev.target, '.fs-mode'); if (fm){ var s2 = HM.fsStage(); var sl = s2.dataset.mode === 'slide'; s2.dataset.mode = sl ? 'hold' : 'slide'; fm.textContent = sl ? 'Slider' : 'Hold'; fm.classList.toggle('on', !sl); return }
-    var ft = closest(ev.target, '.fs-fit'); if (ft){ var s3 = HM.fsStage(); var full = s3.dataset.fit === 'full'; s3.dataset.fit = full ? 'fit' : 'full'; ft.textContent = full ? '100%' : 'Fit'; ft.classList.toggle('on', !full); return }
+    var ft = closest(ev.target, '.fs-fit'); if (ft){ var s3 = HM.fsStage(); var full = s3.dataset.fit === 'full'; HM.fsSetFit(full ? 'fit' : 'full'); return }
   });
+  var lastStatus = null;
+  function pollStatus(){
+    var el = document.getElementById('status'); if (!el) return;
+    fetch(new URL('hm_status', document.baseURI), {cache: 'no-store'}).then(function(r){ return r.json() }).then(function(d){
+      if (d.html === lastStatus) return; lastStatus = d.html;
+      var host = el.querySelector('.prose') || el; if (host.innerHTML !== d.html) host.innerHTML = d.html;
+    }).catch(function(){});
+  }
+  setInterval(pollStatus, 5000); setTimeout(pollStatus, 800);
   HM.fsStage = function(){ return document.querySelector('#hm-full .fs-stage') };
+  HM.fsSetFit = function(mode){
+    var m = document.getElementById('hm-full'); if (!m) return;
+    m.dataset.fit = mode; m.querySelector('.fs-stage').dataset.fit = mode;
+    var b = m.querySelector('.fs-fit'); b.textContent = mode === 'fit' ? 'Actual size (100%)' : 'Fit to screen'; b.classList.toggle('on', mode === 'full');
+    HM.fsMeasure(); var body = m.querySelector('.fs-body'); body.scrollTop = 0; body.scrollLeft = 0;
+  };
+  HM.fsMeasure = function(){
+    var m = document.getElementById('hm-full'); if (!m || m.hidden) return;
+    var body = m.querySelector('.fs-body'), st = m.querySelector('.fs-stage');
+    st.style.setProperty('--fs-w', (body.clientWidth - 16) + 'px'); st.style.setProperty('--fs-h', (body.clientHeight - 16) + 'px');
+  };
+  window.addEventListener('resize', function(){ HM.fsMeasure() });
   HM.fsClose = function(){ var m = document.getElementById('hm-full'); if (m){ m.hidden = true; m.querySelectorAll('img').forEach(function(i){ i.removeAttribute('src') }) } document.body.style.overflow = '' };
   HM.fsOpen = function(name, prot, orig){
     var m = document.getElementById('hm-full');
     if (!m){ m = document.createElement('div'); m.id = 'hm-full'; document.body.appendChild(m);
       m.innerHTML = '<div class="fs-bar"><span class="fs-title"></span><button class="fs-hold" title="Hold to see the original (or hold Space)">Hold: original</button>'
-        + '<button class="fs-mode">Slider</button><button class="fs-fit">100%</button><button class="fs-close">Close</button></div>'
-        + '<div class="fs-note">Full resolution. Hold the button, the image or Space to see the original. Use 100% to inspect pixels, scroll to pan.</div>'
+        + '<button class="fs-mode">Slider</button><button class="fs-fit">Actual size (100%)</button><button class="fs-close">Close</button></div>'
+        + '<div class="fs-note">Full resolution. Hold the button, the image or Space to see the original. Use Actual size to inspect pixels, then scroll to pan.</div>'
         + '<div class="fs-body"><div class="fs-stage" data-mode="hold" data-fit="fit"><img class="fs-m" alt=""><img class="fs-o" alt="">'
         + '<input class="fs-range" type="range" min="0" max="100" value="50" aria-label="Compare slider"><div class="fs-div"></div></div></div>' }
     var st = m.querySelector('.fs-stage'); st.dataset.mode = 'hold'; st.dataset.fit = 'fit'; st.classList.remove('holding');
     m.querySelector('.fs-mode').textContent = 'Slider'; m.querySelector('.fs-mode').classList.remove('on');
-    m.querySelector('.fs-fit').textContent = '100%'; m.querySelector('.fs-fit').classList.remove('on');
     var mi = m.querySelector('.fs-m'), oi = m.querySelector('.fs-o'), title = m.querySelector('.fs-title');
     title.textContent = name + ' (loading)';
     mi.onload = function(){ title.textContent = name + '  ' + mi.naturalWidth + ' x ' + mi.naturalHeight + ' px' };
-    mi.src = prot; oi.src = orig; m.hidden = false; document.body.style.overflow = 'hidden';
+    mi.src = prot; oi.src = orig; m.hidden = false; document.body.style.overflow = 'hidden'; HM.fsSetFit('fit');
   };
 })();
 </script>
