@@ -26,21 +26,20 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends gosu tini ca-certificates libgl1 libglib2.0-0 \
  && rm -rf /var/lib/apt/lists/*
 
+# Torch and the trimming happen in ONE layer: files deleted in a later layer would still be stored in this one.
+# Trimmed: torch.compile's triton and the C/C++ headers shipped inside the CUDA wheels (nothing here compiles).
+# Every CUDA runtime library stays, because torch links them at import; the checks further down fail the build otherwise.
 RUN pip install "torch==${TORCH_VERSION}" "torchvision==${TORCHVISION_VERSION}" \
-      --index-url "https://download.pytorch.org/whl/${TORCH_CUDA}"
-
-COPY docker/requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt \
- && pip install setuptools
-
-# Trim what nothing here uses (torch.compile's triton, C/C++ headers shipped inside the CUDA wheels).
-# Every CUDA runtime library stays: torch links them at import. The checks below fail the build if that is wrong.
-RUN pip uninstall -y triton \
+      --index-url "https://download.pytorch.org/whl/${TORCH_CUDA}" \
+ && pip uninstall -y triton \
  && SP="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" \
  && rm -rf "$SP"/nvidia/*/include "$SP"/torch/include "$SP"/torch/test \
  && find "$SP" -name '__pycache__' -type d -prune -exec rm -rf {} + ; \
     du -sh "$SP" | tail -1
 
+COPY docker/requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt \
+ && pip install setuptools
 WORKDIR /app
 COPY nightshade-reimplementation /tmp/nsre
 RUN pip install --no-deps /tmp/nsre && rm -rf /tmp/nsre
@@ -59,7 +58,7 @@ RUN python -c "import torch, torchvision; print('torch', torch.__version__, 'cud
 
 # ...that the page renders (Gradio and Starlette versions have to match), and that the real Stable Diffusion VAE
 # file loads with every weight present (downloads about 330 MB at build time)
-RUN python /app/smoke.py --vae
+RUN python /app/smoke.py --vae && rm -rf /tmp/vae-smoke /tmp/smoke /root/.cache
 
 EXPOSE 7860
 VOLUME /data
