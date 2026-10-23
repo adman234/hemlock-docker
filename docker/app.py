@@ -50,6 +50,27 @@ PREVIEW_SIDE = int(os.environ.get("HEMLOCK_PREVIEW_SIDE", "1600"))
 NUM_CLASS_IMAGES = os.environ.get("MIST_CLASS_IMAGES", "20")
 PORT = int(os.environ.get("HEMLOCK_PORT", "7860"))
 
+ABOUT_HTML = f"""
+<div class='about'>
+<p><b>What PyTorch is.</b> PyTorch is a machine-learning library: software for building and running neural networks, the kind of model that
+AI image generators and image recognisers are made of. It does the heavy maths on the graphics card (GPU). It is a toolbox, not the clever
+part. The clever part is the algorithm built with it.</p>
+<p><b>What the algorithm does.</b> Both methods run an optimisation. They look at your image through a neural network, then nudge the pixels by tiny
+amounts, thousands of times, checking each time how the network's view of the image changes. They keep the nudges that steer that view
+somewhere else while staying small enough that people barely notice. That repeated nudge-and-check loop is why a single image takes seconds to
+minutes and needs a GPU.</p>
+<ul>
+<li><b>Hemlock</b> (a Nightshade-style method) steers the image towards a different concept, for example "dog" towards "car". The idea is that an AI
+trained on many such images, all labelled honestly, slowly learns the wrong association. It works on what a model <i>learns from</i> your art, so a
+single image will not change what any assistant says about it today.</li>
+<li><b>Mist</b> adds noise aimed at tools that copy an artist's style, so that attempts to imitate your work come out scrambled.</li>
+</ul>
+<p><b>Honest limits.</b> These are deterrents, not guarantees. How well they hold up against real training has not been independently measured here, and
+nothing replaces keeping your originals and posting responsibly.</p>
+<p><b>Your images.</b> Uploads are kept on the server only while they are processed and for your download, then deleted automatically after
+about {max(1, JOB_TTL // 60)} minutes. Please do not upload anything you are not allowed to share.</p>
+</div>
+"""
 METHOD_H = "Hemlock (poison, Nightshade-style)"
 METHOD_M = "Mist v2 (anti style-copying)"
 H_STRENGTH = {"Light": 0, "Balanced": 1, "Strong": 2}
@@ -481,6 +502,13 @@ def build():
             "<p>Protect your artwork from AI scraping. Pick a method, upload one image or a whole batch, then press and hold "
             "a result to compare it with your original. Images are deleted from the server after a while.</p></div>"
         )
+        gr.HTML(
+            "<div class='note'><b>Please be patient.</b> This is a hobby project running on a spare PC in my basement, not in a data center. "
+            "There is one GPU and it works on one job at a time, so your images may wait in line behind someone else's, and big batches or the "
+            "slower settings take a while. Thanks for bearing with it.</div>"
+        )
+        with gr.Accordion("About this project: what is happening to my image?", open=False):
+            gr.HTML(ABOUT_HTML)
         status = gr.HTML(status_text())
         method = gr.Radio([METHOD_H, METHOD_M], value=METHOD_H, label="Method",
                           info="Hemlock poisons what AI learns from the image (Nightshade-style, about 20 s per image). "

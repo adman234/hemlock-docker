@@ -13,6 +13,8 @@ CSS = """
 button.lg,button.primary{min-height:52px;font-size:1.05rem}
 #hero h1{margin:.2em 0 .1em;font-size:1.9rem}
 #hero p{margin:.2em 0;opacity:.8}
+.note{border:1px solid var(--border-color-primary,#8884);border-left:4px solid #10b981;border-radius:10px;padding:10px 14px;margin:10px 0;background:var(--background-fill-secondary,#8881);font-size:.92rem;line-height:1.45}
+.about{font-size:.92rem;line-height:1.5}.about p,.about ul{margin:.5em 0}.about li{margin:.35em 0}
 .pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85rem;margin:6px 6px 6px 0}
 .pill.ok{background:#1f9d5533;color:#1f9d55}.pill.wait{background:#d9a40033;color:#b58900}.pill.bad{background:#d6336c33;color:#d6336c}
 .pill.idle{background:#8883;color:inherit}
