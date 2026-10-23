@@ -70,9 +70,9 @@ INFO_HTML = f"""
 <div class='about'>
 <p><b>Methods</b></p>
 <ul>
-<li><b>Hemlock</b> (poison, Nightshade-style): about 20 s to 1.5 min per image. Pushes your image towards a different concept so an AI that <i>trains</i> on many such
+<li><b>Hemlock</b> (poison, Nightshade-style): roughly 1.5 to 7 minutes per image on a GTX 1070 (estimate). Pushes your image towards a different concept so an AI that <i>trains</i> on many such
 images learns the wrong thing. Gives each image a tag to put in its ALT text.</li>
-<li><b>Mist v2</b> (anti style-copying): several minutes per image. Adds noise aimed at tools that imitate an artist's style, so imitations come out scrambled.</li>
+<li><b>Mist v2</b> (anti style-copying): slow, 15 minutes or more per image on a GTX 1070 (estimate), and it may run out of memory on an 8 GB card. Adds noise aimed at tools that imitate an artist's style, so imitations come out scrambled.</li>
 </ul>
 <p><b>Models used</b></p>
 <ul>
@@ -82,7 +82,7 @@ images learns the wrong thing. Gives each image a tag to put in its ALT text.</l
 </ul>
 <p><b>Hemlock settings</b></p>
 <ul>
-<li><b>Strength</b>: how much each pixel may change. Light is nearly invisible (about 6 out of 255), Balanced shows faint grain when zoomed in (about 12), Strong can show texture on flat areas (about 20) and takes about twice as long.</li>
+<li><b>Strength</b>: how much each pixel may change. Light is nearly invisible (about 6 out of 255), Balanced shows faint grain when zoomed in (about 12), Strong can show texture on flat areas (about 20) and takes about twice as long. Estimates for a GTX 1070, not measured: Fast about 1.5 min per image, Better 2.5 min, Thorough 4.5 min, Maximum 7 min.</li>
 <li><b>Render quality</b>: how long it optimises. Fast 100 passes, Better 150, Thorough 300, Maximum 500, with more random crops tested per pass as it goes up, so the effect should hold up better after cropping or resizing.</li>
 <li><b>Poison tag</b> (one image only), <b>Push towards</b>, <b>ALT text template</b>, <b>metadata</b>, <b>seed</b>: in More options. Leave them empty for automatic choices. A seed makes a run repeatable.</li>
 </ul>
@@ -597,14 +597,10 @@ def build():
             "<div class='note'><b>Please be patient.</b> This is a hobby project running on a spare PC in my basement, not in a data center. "
             "Your images may wait in line behind someone else's, which can take a few minutes.</div>"
         )
-        with gr.Accordion("About this project: what is happening to my image?", open=False):
-            gr.HTML(ABOUT_HTML)
-        with gr.Accordion("Info: what the methods, models and settings mean", open=False):
-            gr.HTML(INFO_HTML)
         gr.HTML(status_text(), elem_id="status")
         method = gr.Radio([METHOD_H, METHOD_M], value=METHOD_H, label="Method",
-                          info="Hemlock poisons what AI learns from the image (Nightshade-style, about 20 s per image). "
-                               "Mist adds noise that disrupts copying an artist's style (several minutes per image).")
+                          info="Hemlock poisons what AI learns from the image (Nightshade-style, roughly 1.5 to 7 minutes per image). "
+                               "Mist adds noise that disrupts copying an artist's style (very slow, 15 minutes or more per image).")
         with gr.Row():
             with gr.Column(scale=3, min_width=320):
                 files = gr.File(label="Your images", file_count="multiple", file_types=["image"], height=380)
@@ -615,7 +611,7 @@ def build():
                     h_strength = gr.Radio(list(H_STRENGTH), value="Balanced", label="Strength",
                                           info="How much each pixel may change. Higher strength settings will also take longer to render.")
                     h_quality = gr.Radio(list(H_QUALITY), value="Better", label="Render quality",
-                                         info="How long it optimizes. Fast takes about 1 minute, Maximum can take several minutes.")
+                                         info="How long it optimizes. Fast takes about 1.5 minutes per image, Better about 2.5, Thorough about 4.5, Maximum about 7.")
                 with gr.Group(visible=False) as m_main:
                     m_strength = gr.Radio(list(M_STRENGTH), value="Balanced", label="Strength",
                                           info="Stronger protects more, but the noise becomes easier to see.")
@@ -643,6 +639,10 @@ def build():
                     "Keep your originals. Not affiliated with the Nightshade or Mist teams.")
         gr.HTML("<div id='hm-jobs'></div>")
         jobid = gr.Textbox(visible=False)
+        with gr.Accordion("About this project: what is happening to my image?", open=False):
+            gr.HTML(ABOUT_HTML)
+        with gr.Accordion("Info: what the methods, models and settings mean", open=False):
+            gr.HTML(INFO_HTML)
 
         def switch(m):
             h = m == METHOD_H

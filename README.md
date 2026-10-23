@@ -8,9 +8,9 @@ Neither method is a guarantee. Nobody has measured here whether Hemlock actually
 
 ## The two methods
 
-**Hemlock** nudges an image towards a different concept (say "dog" towards "car"), so that a model trained on lots of images like it could learn the wrong thing. It takes roughly 20 seconds to a minute and a half per image, and it gives you a tag to put in the image's ALT text when you post it.
+**Hemlock** nudges an image towards a different concept (say "dog" towards "car"), so that a model trained on lots of images like it could learn the wrong thing. On an RTX 4070 SUPER it takes about 20 seconds to a minute and a half per image (roughly 1.5 to 7 minutes on a GTX 1070, my estimate), and it gives you a tag to put in the image's ALT text when you post it.
 
-**Mist v2** ([psyker-team/mist-v2](https://github.com/psyker-team/mist-v2), Apache-2.0, included under `mist/`) adds noise aimed at tools that copy an artist's style. It takes a few minutes per image.
+**Mist v2** ([psyker-team/mist-v2](https://github.com/psyker-team/mist-v2), Apache-2.0, included under `mist/`) adds noise aimed at tools that copy an artist's style. It takes a few minutes per image on a fast card, and would be much slower on a GTX 1070 and may not fit in its 8 GB.
 
 Neither will change what a chat assistant says about a single image. They work on what a model learns from training data, not on what it sees at inference time.
 
@@ -66,12 +66,12 @@ These numbers are from an RTX 4070 SUPER on 512 pixel images. "Change" means how
 | Balanced | 12 | 2.4 to 2.9 | A little grain if you zoom in |
 | Strong | 20 | 5.1 | Texture on flat areas, and it takes about twice as long |
 
-| Render quality | Time per image | What it does |
-|---|---|---|
-| Fast | about 20 s | 100 passes, one random crop each |
-| Better | about 30 s | 150 passes, two crops |
-| Thorough | about 1 min | 300 passes, three crops |
-| Maximum | about 1.5 min | 500 passes, six crops |
+| Render quality | 4070 SUPER | GTX 1070 (estimate) | What it does |
+|---|---|---|---|
+| Fast | about 20 s | about 1.5 min | 100 passes, one random crop each |
+| Better | about 30 s | about 2.5 min | 150 passes, two crops |
+| Thorough | about 1 min | about 4.5 min | 300 passes, three crops |
+| Maximum | about 1.5 min | about 7 min | 500 passes, six crops |
 
 Strength limits how far pixels can move. Render quality is how long it keeps optimising, and the slower settings test more crops, which should help the effect survive cropping and resizing. The defaults are Balanced and Better. Nobody has checked whether a slower setting poisons any better.
 
