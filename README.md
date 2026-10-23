@@ -42,7 +42,8 @@ All environment variables, all optional:
 |---|---|---|
 | `HEMLOCK_IDLE_UNLOAD_MINUTES` | 10 | Frees the GPU and RAM after this long without a job. 0 frees after every job, -1 never. |
 | `HEMLOCK_JOB_TTL_MINUTES` | 60 | Uploads and results are deleted after this long. |
-| `HEMLOCK_PASSWORD`, `HEMLOCK_USERNAME` | none | Turns on a login. The username defaults to `hemlock`. |
+| `HEMLOCK_PASSWORD` | none | Turns on a password page (password only, no username). |
+| `HEMLOCK_LOGIN_MAX_FAILS`, `HEMLOCK_LOGIN_LOCK_MINUTES` | 5, 15 | After this many wrong passwords from one address it is locked out for this long. |
 | `HEMLOCK_MAX_FILES`, `MIST_MAX_FILES` | 20, 20 | Images allowed per run for each method. |
 | `HEMLOCK_QUEUE_MAX` | 20 | How many runs can wait before new ones are refused. |
 | `HEMLOCK_CONCEPT_MODELS` | 1 | Set to 0 to skip the captioning models and type tags yourself. |
@@ -50,6 +51,8 @@ All environment variables, all optional:
 | `PUID`, `PGID`, `UMASK` | 99, 100, 022 | File ownership. |
 
 Drop a `concepts.txt` (one word per line) or a `mapping.json` into the data folder to replace Hemlock's built-in word list.
+
+With a password set, wrong guesses are rate limited by the app itself (see above). Behind a reverse proxy such as Nginx Proxy Manager it reads the visitor's address from `X-Real-IP`, which nginx sets. If you use Cloudflare in front of it, make nginx see the real visitor address, otherwise everyone shares one limit.
 
 Models are only in memory while a job needs them. Hemlock runs in its own process that gets shut down when idle, which is what actually gives the memory back. The next job after that takes about ten seconds longer to start.
 
@@ -70,7 +73,7 @@ These numbers are from an RTX 4070 SUPER on 512 pixel images. "Change" means how
 | Thorough | about 1 min | 300 passes, three crops |
 | Maximum | about 1.5 min | 500 passes, six crops |
 
-Strength limits how far pixels can move. Render quality is how long it keeps optimising, and the slower settings test more crops, which should help the effect survive cropping and resizing. The defaults are Light and Better. Nobody has checked whether a slower setting poisons any better.
+Strength limits how far pixels can move. Render quality is how long it keeps optimising, and the slower settings test more crops, which should help the effect survive cropping and resizing. The defaults are Balanced and Better. Nobody has checked whether a slower setting poisons any better.
 
 ## ALT text
 

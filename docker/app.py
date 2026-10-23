@@ -5,6 +5,7 @@ only while they are needed and unloaded after an idle timeout (see manager.py). 
 folder that is deleted after a while (HEMLOCK_JOB_TTL_MINUTES).
 torch is imported lazily so the idle process stays small.
 """
+import collections
 import html
 import os
 import re
@@ -53,7 +54,7 @@ PORT = int(os.environ.get("HEMLOCK_PORT", "7860"))
 ABOUT_HTML = f"""
 <div class='about'>
 <p><b>What PyTorch is.</b> PyTorch is a machine-learning library: software for building and running neural networks, the kind of model that
-AI image generators and image recognisers are made of. It does the heavy maths on the graphics card (GPU).</p>
+AI image generators and image recognisers are made of.</p>
 <p><b>What the algorithm does.</b> Both methods run an optimisation. They look at your image through a neural network, then nudge the pixels by tiny
 amounts, thousands of times, checking each time how the network's view of the image changes.</p>
 <ul>
@@ -87,11 +88,11 @@ images learns the wrong thing. Gives each image a tag to put in its ALT text.</l
 </ul>
 <p><b>Mist settings</b></p>
 <ul>
-<li><b>Strength</b>: how far pixels may move (6, 12 or 18 out of 255). Stronger protects more and shows more.</li>
+<li><b>Strength</b>: how far pixels may move (6, 12 or 18 out of 255).</li>
 <li><b>Mode</b>: 1 targets texture (default), 2 adds meaning as well as texture, 3 is aimed at personalisation tools like DreamBooth.</li>
 <li><b>Passes</b>: more passes take longer and protect somewhat better. <b>Keep the original size</b> returns the full image instead of a crop.</li>
 </ul>
-<p>Good starting point: Hemlock with Light and Better. Times are rough and depend on the GPU and the queue. Neither method is a guarantee.</p>
+<p>Good starting point: Hemlock with Balanced and Better. Times are rough and depend on the GPU and the queue. Neither method is a guarantee.</p>
 </div>
 """
 
@@ -192,18 +193,38 @@ class JobState:
             raise Cancelled()
 
 
-CURRENT = {}  # session hash -> JobState, so Stop only ever cancels the caller's own job
+
+
+class Job:
+    """One submitted run. Lives on the server, so a page reload or a closed tab does not lose it."""
+
+    def __init__(self, method, count, files, o):
+        self.id = uuid.uuid4().hex
+        self.dir = JOBS / self.id
+        self.method, self.count, self.files, self.o = method, count, files, o
+        self.st = JobState()
+        self.state = "queued"  # queued, running, done, error, stopped
+
+
+REG = {}  # job id -> Job (the id is unguessable, it is the only thing a browser needs to remember)
+QUEUE = collections.deque()
+QCOND = threading.Condition()
 
 
 def sweep_old_jobs():
     JOBS.mkdir(parents=True, exist_ok=True)
     cutoff = time.time() - JOB_TTL
+    with QCOND:
+        active = {j.id for j in REG.values() if j.state in ("queued", "running")}
     for p in JOBS.iterdir():
         try:
-            if p.stat().st_mtime < cutoff:
+            if p.name not in active and p.stat().st_mtime < cutoff:
                 shutil.rmtree(p, ignore_errors=True)
         except OSError:
             pass
+    with QCOND:
+        for jid in [k for k, j in REG.items() if j.state not in ("queued", "running") and not j.dir.exists()]:
+            REG.pop(jid, None)
 
 
 def _sweeper():
@@ -221,6 +242,8 @@ def safe_stem(name):
 
 
 def _file_path(f):
+    if isinstance(f, Path):
+        return f
     return Path(f if isinstance(f, str) else f.name)
 
 
@@ -416,11 +439,10 @@ def mist_job(st: JobState, job: Path, files, o):
     return items, list(skipped)
 
 
-def _worker(st: JobState, method, files, o):
-    job = JOBS / uuid.uuid4().hex
+def _worker(st: JobState, method, files, o, job: Path):
     try:
         for sub in ("in", "out", "result"):
-            (job / sub).mkdir(parents=True)
+            (job / sub).mkdir(parents=True, exist_ok=True)
         sweep_old_jobs()
         items, failures = (hemlock_job if method == METHOD_H else mist_job)(st, job, files, o)
         if not items:
@@ -436,8 +458,8 @@ def _worker(st: JobState, method, files, o):
                           "That helps the protection take effect.")
                 (final / "hemlock-tags.txt").write_text(header + "\n\n" + "\n".join(alt_lines) + "\n", encoding="utf8")
                 z.write(final / "hemlock-tags.txt", "hemlock-tags.txt")
-        shutil.rmtree(job / "in", ignore_errors=True)
-        shutil.rmtree(job / "out", ignore_errors=True)
+        for sub in ("in", "out", "upload"):
+            shutil.rmtree(job / sub, ignore_errors=True)
         st.result = {"items": items, "failures": failures, "zip": str(zpath), "alt": "\n".join(alt_lines)}
     except Cancelled:
         st.error = "Stopped."
@@ -472,17 +494,65 @@ def status_text():
     return "".join(parts)
 
 
-def queued_msg():
-    return viewer.progress_bar(0, "Waiting for a free slot", "Another run may be in progress. It starts automatically."), "", gr.update(), gr.update(visible=False)
+def _runner():
+    """The single worker: takes queued jobs one at a time (each needs the whole GPU)."""
+    while True:
+        with QCOND:
+            while not QUEUE:
+                QCOND.wait()
+            job = QUEUE.popleft()
+            job.state = "running"
+        try:
+            _worker(job.st, job.method, job.files, job.o, job.dir)
+        except Exception as e:  # noqa: BLE001
+            job.st.error = str(e)
+        with QCOND:
+            job.state = "stopped" if job.st.error == "Stopped." else ("error" if job.st.error else "done")
+            job.files = None
+        try:
+            os.utime(job.dir)  # the delete timer counts from when the run finished
+        except OSError:
+            pass
 
 
-def stop_job(request: gr.Request):
-    job = CURRENT.get(request.session_hash)
-    if job:
-        job.cancel.set()
+def job_view(job: Job):
+    """What the browser shows for one run: {state, html, ahead, pct}."""
+    head = f"<div class='job-head'><b>{html.escape(job.method.split(' (')[0])}</b>, {job.count} image{'s' if job.count != 1 else ''}</div>"
+    clear = "<div class='job-actions'><button type='button' class='job-clear'>Clear</button></div>"
+    ahead, st = 0, job.st
+    if job.state == "queued":
+        with QCOND:
+            ahead = list(QUEUE).index(job) if job in QUEUE else 0
+        sub = (f"{ahead} run{'s' if ahead != 1 else ''} ahead of yours. " if ahead else "") + \
+              "It starts by itself. You can close this page and come back to this run later."
+        body = viewer.progress_bar(0, "Submitted, waiting for another run to finish", sub)
+    elif job.state == "running":
+        body = viewer.progress_bar(st.frac, st.message, st.sub)
+    elif job.state == "stopped":
+        body = viewer.pill("wait", "Stopped.") + clear
+    elif job.state == "error":
+        body = viewer.pill("bad", st.error or "Failed") + clear
+    else:
+        r, note = st.result, ""
+        if r["failures"]:
+            note = viewer.pill("bad", "Skipped: " + "; ".join(f"{a} ({b})" for a, b in r["failures"])[:300])
+        body = note + viewer.cards(r["items"]) + viewer.zip_button(r["zip"]) + clear
+    return {"state": job.state, "html": head + body, "ahead": ahead, "pct": round(st.frac * 100) if job.state == "running" else 0}
 
 
-def run(method, files, h_strength, h_quality, tag, target, seed, template, write_meta, m_strength, m_mode, m_passes, m_prompt, m_keep, request: gr.Request):
+def cancel_job(job: Job):
+    with QCOND:
+        if job.state == "queued":
+            QUEUE.remove(job)
+            job.state, job.st.error, job.files = "stopped", "Stopped.", None
+            shutil.rmtree(job.dir, ignore_errors=True)
+            return
+    if job.state == "running":
+        job.st.cancel.set()
+
+
+def run(method, files, h_strength, h_quality, tag, target, seed, template, write_meta, m_strength, m_mode, m_passes, m_prompt, m_keep):
+    """Validates, copies the uploads into the job folder, queues the run and returns its id right away."""
     if not _setup["ready"]:
         raise gr.Error(_setup["error"] or _setup["msg"] + ". Try again in a few minutes.")
     if not files:
@@ -490,33 +560,31 @@ def run(method, files, h_strength, h_quality, tag, target, seed, template, write
     limit = MAX_FILES_H if method == METHOD_H else MAX_FILES_M
     if len(files) > limit:
         raise gr.Error(f"At most {limit} images per run for this method.")
+    with QCOND:
+        if len(QUEUE) >= QUEUE_MAX:
+            raise gr.Error("The line is full right now. Please try again in a few minutes.")
     o = {"h_strength": h_strength, "h_quality": h_quality, "tag": tag or "", "target": target or "",
          "seed": int(seed) if seed not in (None, "") else None, "template": template or "{tag}", "write_meta": bool(write_meta),
          "m_strength": m_strength, "m_mode": m_mode, "m_passes": m_passes, "m_prompt": m_prompt or "", "m_keep": bool(m_keep)}
-    st = JobState()
-    sid = request.session_hash
-    CURRENT[sid] = st
-    th = threading.Thread(target=_worker, args=(st, method, files, o), daemon=True)
-    th.start()
-    yield viewer.progress_bar(0, "Starting"), "", gr.update(), gr.update(visible=False)
-    last = None
-    while th.is_alive():
-        time.sleep(0.5)
-        bar = viewer.progress_bar(st.frac, st.message, st.sub)
-        if bar != last:
-            last = bar
-            yield bar, gr.update(), gr.update(), gr.update()
-    th.join()
-    CURRENT.pop(sid, None)
-    if st.error:
-        kind = "wait" if st.error == "Stopped." else "bad"
-        yield viewer.pill(kind, st.error), "", gr.update(), gr.update(visible=False)
-        return
-    r = st.result
-    note = ""
-    if r["failures"]:
-        note = viewer.pill("bad", "Skipped: " + "; ".join(f"{a} ({b})" for a, b in r["failures"])[:300])
-    yield note, viewer.cards(r["items"]), r["zip"], gr.update(visible=True)
+    job = Job(method, len(files), [], o)
+    staged = []
+    try:
+        for i, f in enumerate(files):
+            src = _file_path(f)
+            d = job.dir / "upload" / f"{i:04d}"
+            d.mkdir(parents=True)
+            dest = d / (getattr(f, "orig_name", None) or src.name)
+            shutil.copyfile(src, dest)
+            staged.append(dest)
+    except Exception:
+        shutil.rmtree(job.dir, ignore_errors=True)
+        raise gr.Error("Could not read the uploaded files. Please try again.")
+    job.files = staged
+    with QCOND:
+        REG[job.id] = job
+        QUEUE.append(job)
+        QCOND.notify()
+    return job.id
 
 
 def build():
@@ -540,13 +608,14 @@ def build():
         with gr.Row():
             with gr.Column(scale=3, min_width=320):
                 files = gr.File(label="Your images", file_count="multiple", file_types=["image"], height=380)
-                gr.HTML(f"<div class='hint'>Up to {MAX_FILES_H} images per run with Hemlock, {MAX_FILES_M} with Mist.</div>")
+                gr.HTML("<div class='hint'>" + (f"Up to {MAX_FILES_H} images per run." if MAX_FILES_H == MAX_FILES_M
+                        else f"Up to {MAX_FILES_H} images per run with Hemlock, {MAX_FILES_M} with Mist.") + "</div>")
             with gr.Column(scale=2, min_width=320):
                 with gr.Group(visible=True) as h_main:
-                    h_strength = gr.Radio(list(H_STRENGTH), value="Light", label="Strength",
-                                          info="How much each pixel may change. Light is nearly invisible, Balanced shows faint grain when zoomed in, Strong can show texture on flat areas and takes about twice as long.")
+                    h_strength = gr.Radio(list(H_STRENGTH), value="Balanced", label="Strength",
+                                          info="How much each pixel may change. Higher strength settings will also take longer to render.")
                     h_quality = gr.Radio(list(H_QUALITY), value="Better", label="Render quality",
-                                         info="How long it optimises. Fast about 20 s per image, Better 30 s, Thorough 1 min, Maximum 1.5 min on a mid-range GPU. Slower options test more random crops, so the effect holds up better after cropping or resizing.")
+                                         info="How long it optimizes. Fast takes about 1 minute, Maximum can take several minutes.")
                 with gr.Group(visible=False) as m_main:
                     m_strength = gr.Radio(list(M_STRENGTH), value="Balanced", label="Strength",
                                           info="Stronger protects more, but the noise becomes easier to see.")
@@ -568,14 +637,12 @@ def build():
                 m_prompt = gr.Textbox(label="Short description of the images", value="a picture",
                                       info="Optional, e.g. 'an anime girl' or 'a landscape painting'.")
         with gr.Row():
-            go = gr.Button("Protect images", variant="primary", size="lg", scale=4)
+            go = gr.Button("Protect images", variant="primary", size="lg", scale=4, elem_id="go")
             stop = gr.Button("Stop", size="lg", scale=1, min_width=90)
         gr.Markdown("These methods make copying harder, they are not a guarantee, and their effect has not been independently measured here. "
                     "Keep your originals. Not affiliated with the Nightshade or Mist teams.")
-        progress = gr.HTML()
-        result = gr.HTML()
-        with gr.Group(visible=False) as dl_group:
-            zip_file = gr.File(label="Download everything (zip)", elem_id="zipbox")
+        gr.HTML("<div id='hm-jobs'></div>")
+        jobid = gr.Textbox(visible=False)
 
         def switch(m):
             h = m == METHOD_H
@@ -583,9 +650,9 @@ def build():
 
         method.change(switch, method, [h_main, m_main, h_more, m_more], show_progress="hidden")
         inputs = [method, files, h_strength, h_quality, tag, target, seed, template, write_meta, m_strength, m_mode, m_passes, m_prompt, m_keep]
-        go.click(queued_msg, None, [progress, result, zip_file, dl_group], queue=False, show_progress="hidden").then(
-            run, inputs, [progress, result, zip_file, dl_group], show_progress="hidden", trigger_mode="once")
-        stop.click(stop_job, None, None, queue=False, show_progress="hidden")
+        go.click(run, inputs, [jobid], show_progress="hidden", trigger_mode="once").then(
+            None, [jobid], None, js="(id) => { HM.added(id) }")
+        stop.click(None, None, None, js="() => { HM.cancelAll() }")
     return demo
 
 
@@ -594,8 +661,8 @@ if __name__ == "__main__":
     if not os.environ.get("HEMLOCK_SKIP_MODELS"):
         threading.Thread(target=ensure_downloads, daemon=True).start()
     threading.Thread(target=_sweeper, daemon=True).start()
-    user, pw = os.environ.get("HEMLOCK_USERNAME", ""), os.environ.get("HEMLOCK_PASSWORD", "")
-    auth = (user or "hemlock", pw) if pw else None
+    threading.Thread(target=_runner, daemon=True, name="runner").start()
+    pw = os.environ.get("HEMLOCK_PASSWORD", "")
     import uvicorn
     from fastapi import FastAPI
 
@@ -605,8 +672,29 @@ if __name__ == "__main__":
     def hm_status():
         return {"html": status_text()}
 
+    from fastapi.responses import JSONResponse
+
+    @api.get("/hm_job/{jid}")
+    def hm_job(jid: str):
+        job = REG.get(jid)
+        if job is None:
+            return JSONResponse({"state": "expired"}, status_code=404, headers={"Cache-Control": "no-store"})
+        return JSONResponse(job_view(job), headers={"Cache-Control": "no-store"})
+
+    @api.post("/hm_cancel/{jid}")
+    def hm_cancel(jid: str):
+        job = REG.get(jid)
+        if job is not None:
+            cancel_job(job)
+        return {"ok": job is not None}
+
     demo = build()
-    demo.queue(default_concurrency_limit=1, max_size=QUEUE_MAX)
+    demo.queue(default_concurrency_limit=4)
     demo.show_api = False
-    app = gr.mount_gradio_app(api, demo, path="/", auth=auth, allowed_paths=[str(JOBS)])
+    app = gr.mount_gradio_app(api, demo, path="/", allowed_paths=[str(JOBS)])
+    if pw:
+        from auth import PasswordGate
+
+        app = PasswordGate(app, pw, max_fails=int(os.environ.get("HEMLOCK_LOGIN_MAX_FAILS", "5")),
+                           lock_seconds=int(float(os.environ.get("HEMLOCK_LOGIN_LOCK_MINUTES", "15")) * 60))
     uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning")

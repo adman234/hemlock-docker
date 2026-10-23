@@ -16,7 +16,17 @@ button.lg,button.primary{min-height:52px;font-size:1.05rem}
 .hm-oss{display:inline-flex;align-items:center;gap:.45em;margin-left:1em;color:inherit;text-decoration:none;opacity:.85}
 .hm-oss:hover{opacity:1;text-decoration:underline}
 .hm-oss svg{flex:none}
-#zipbox [data-testid=block-label]{background:none !important;border:none !important;box-shadow:none !important;color:inherit !important;padding-left:0 !important;font-weight:600}
+.job-head{margin:14px 0 6px;font-size:1rem}
+.job-actions{margin-top:10px;display:flex;justify-content:flex-end}
+.job-clear{padding:6px 12px;min-height:34px;border-radius:10px;border:1px solid var(--border-color-primary,#8886);background:var(--button-secondary-background-fill,#8882);color:inherit;font-size:.85rem;cursor:pointer}
+.zip-dl{display:flex;align-items:center;justify-content:center;gap:.5em;margin-top:14px;padding:12px 16px;min-height:48px;border-radius:12px;background:#10b981;color:#fff !important;font-weight:600;text-decoration:none !important}
+.zip-dl:hover{filter:brightness(1.07)}
+/* the big button reflects the state of this browser's runs: waiting (amber) or running (blue) */
+#go[data-hm]{pointer-events:none;color:#fff !important;font-size:0 !important}
+#go[data-hm]::after{content:attr(data-label);font-size:1.05rem;line-height:1.3}
+#go[data-hm=wait]{background:#b7791f !important;border-color:#b7791f !important}
+#go[data-hm=run]{background:#2563eb !important;border-color:#2563eb !important;animation:hmpulse 1.6s ease-in-out infinite}
+@keyframes hmpulse{50%{filter:brightness(1.25)}}
 .stats{margin-top:8px}.stats summary{cursor:pointer;font-size:.88rem;opacity:.85;padding:6px 0}
 #status{min-height:2.8rem;overflow-anchor:none}
 .note{border:1px solid var(--border-color-primary,#8884);border-left:4px solid #10b981;border-radius:10px;padding:10px 14px;margin:10px 0;background:var(--background-fill-secondary,#8881);font-size:.92rem;line-height:1.45}
@@ -156,6 +166,58 @@ HEAD = """
     }).catch(function(){});
   }
   setInterval(pollStatus, 5000); setTimeout(pollStatus, 800);
+  /* runs live on the server; the browser only remembers their ids, so a reload or a closed tab loses nothing */
+  var ids = [], info = {}, shown = {}, submitting = false, subTimer = null;
+  try{ ids = JSON.parse(localStorage.getItem('hm_jobs') || '[]').filter(function(x){ return typeof x === 'string' }).slice(0, 8) }catch(x){ ids = [] }
+  function save(){ try{ localStorage.setItem('hm_jobs', JSON.stringify(ids)) }catch(x){} }
+  function isFinal(id){ var s = info[id] && info[id].state; return s === 'done' || s === 'error' || s === 'stopped' || s === 'expired' }
+  function holder(){ return document.getElementById('hm-jobs') }
+  function sel(id){ return '[data-id="' + id + '"]' }
+  function put(id, h){
+    var c = holder(); if (!c) return;
+    var el = c.querySelector(sel(id));
+    if (!el){ el = document.createElement('div'); el.className = 'hm-job'; el.dataset.id = id; c.appendChild(el); shown[id] = null;
+      ids.slice().reverse().forEach(function(k){ var e2 = c.querySelector(sel(k)); if (e2) c.insertBefore(e2, c.firstChild) }) }
+    if (shown[id] !== h || !el.firstChild){ el.innerHTML = h; shown[id] = h }
+  }
+  function button(){
+    var b = document.getElementById('go'); if (!b) return;
+    var state = null, label = '';
+    ids.forEach(function(id){ var d = info[id]; if (!d) return;
+      if (d.state === 'running'){ state = 'run'; label = 'Running... ' + d.pct + '%' }
+      else if (d.state === 'queued' && state !== 'run'){ state = 'wait'; label = 'Submitted. Waiting for another run to finish' + (d.ahead ? ' (' + d.ahead + ' ahead)' : '') } });
+    if (!state && submitting){ state = 'wait'; label = 'Submitting...' }
+    HM.busy = !!state;
+    if (state){ b.dataset.hm = state; b.dataset.label = label } else { delete b.dataset.hm; delete b.dataset.label }
+  }
+  function tick(){
+    ids.forEach(function(id){
+      if (isFinal(id)) return;
+      fetch(new URL('hm_job/' + id, document.baseURI), {cache: 'no-store'}).then(function(r){
+        if (r.status === 404){ info[id] = {state: 'expired'}; put(id, "<div class='note'>This run has expired and its files were deleted.</div><div class='job-actions'><button type='button' class='job-clear'>Clear</button></div>"); button(); return null }
+        return r.json() }).then(function(d){ if (!d) return; info[id] = d; put(id, d.html); button() }).catch(function(){});
+    });
+    button();
+  }
+  HM.added = function(id){
+    submitting = false; clearTimeout(subTimer);
+    if (id && ids.indexOf(id) < 0){ ids.unshift(id); ids = ids.slice(0, 8); save() }
+    tick();
+  };
+  HM.cancelAll = function(){
+    ids.forEach(function(id){ if (!isFinal(id)) fetch(new URL('hm_cancel/' + id, document.baseURI), {method: 'POST'}).catch(function(){}) });
+    setTimeout(tick, 300);
+  };
+  document.addEventListener('click', function(ev){
+    if (closest(ev.target, '#go')){
+      if (HM.busy || submitting){ ev.preventDefault(); ev.stopPropagation(); return }
+      submitting = true; button(); clearTimeout(subTimer); subTimer = setTimeout(function(){ submitting = false; button() }, 20000);
+      return;
+    }
+    var cl = closest(ev.target, '.job-clear');
+    if (cl){ var jb = closest(cl, '.hm-job'); if (jb){ var id = jb.dataset.id; ids = ids.filter(function(k){ return k !== id }); delete info[id]; delete shown[id]; save(); jb.remove() } }
+  }, true);
+  setInterval(tick, 1000); setTimeout(tick, 300);
   HM.fsStage = function(){ return document.querySelector('#hm-full .fs-stage') };
   HM.fsSetFit = function(mode){
     var m = document.getElementById('hm-full'); if (!m) return;
@@ -194,6 +256,13 @@ def progress_bar(frac: float, message: str, sub: str = "") -> str:
     pct = max(0.0, min(1.0, frac)) * 100
     return (f"<div class='prog'><div class='msg'>{e(message)}</div><div class='bar'><i style='width:{pct:.1f}%'></i></div>"
             f"<div class='sub'>{e(sub)}</div></div>")
+
+
+def zip_button(path: str) -> str:
+    return (f'<a class="zip-dl" href="file={e(path)}" download="protected_images.zip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+            'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>'
+            'Download everything (zip)</a>')
 
 
 def pill(kind: str, text: str) -> str:
