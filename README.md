@@ -46,6 +46,10 @@ All environment variables, all optional:
 | `HEMLOCK_LOGIN_MAX_FAILS`, `HEMLOCK_LOGIN_LOCK_MINUTES` | 5, 15 | After this many wrong passwords from one address it is locked out for this long. |
 | `HEMLOCK_MAX_FILES`, `MIST_MAX_FILES` | 20, 20 | Images allowed per run for each method. |
 | `HEMLOCK_QUEUE_MAX` | 20 | How many runs can wait before new ones are refused. |
+| `HEMLOCK_DEFAULT_STRENGTH`, `HEMLOCK_DEFAULT_QUALITY` | Balanced, Better | What the Hemlock form starts on: Light, Balanced or Strong, and Fast, Better, Thorough or Maximum. |
+| `MIST_DEFAULT_STRENGTH`, `MIST_DEFAULT_PASSES` | Balanced, 5 | What the Mist form starts on: Light, Balanced or Strong, and 1 to 10 passes. |
+| `HEMLOCK_DEFAULT_METHOD` | hemlock | Set to `mist` to open on Mist instead. |
+| `HEMLOCK_SPEED_FACTOR` | 4.5 | Scales the starting time guesses. 4.5 is about a GTX 1070, 1 is about an RTX 4070 SUPER. After a few runs the server uses the times it measured itself. |
 | `HEMLOCK_CONCEPT_MODELS` | 1 | Set to 0 to skip the captioning models and type tags yourself. |
 | `MIST_MAX_SIDE`, `MIST_CLASS_IMAGES` | 4096, 20 | Mist's resize cap and the number of comparison images it makes on first run. |
 | `PUID`, `PGID`, `UMASK` | 99, 100, 022 | File ownership. |
@@ -53,6 +57,8 @@ All environment variables, all optional:
 Drop a `concepts.txt` (one word per line) or a `mapping.json` into the data folder to replace Hemlock's built-in word list.
 
 With a password set, wrong guesses are rate limited by the app itself (see above). Behind a reverse proxy such as Nginx Proxy Manager it reads the visitor's address from `X-Real-IP`, which nginx sets. If you use Cloudflare in front of it, make nginx see the real visitor address, otherwise everyone shares one limit.
+
+Each run shows how many are ahead of it and a time estimate, which is refined from the run's own progress as it goes.
 
 Models are only in memory while a job needs them. Hemlock runs in its own process that gets shut down when idle, which is what actually gives the memory back. The next job after that takes about ten seconds longer to start.
 

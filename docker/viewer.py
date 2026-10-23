@@ -184,8 +184,8 @@ HEAD = """
     var b = document.getElementById('go'); if (!b) return;
     var state = null, label = '';
     ids.forEach(function(id){ var d = info[id]; if (!d) return;
-      if (d.state === 'running'){ state = 'run'; label = 'Running... ' + d.pct + '%' }
-      else if (d.state === 'queued' && state !== 'run'){ state = 'wait'; label = 'Submitted. Waiting for another run to finish' + (d.ahead ? ' (' + d.ahead + ' ahead)' : '') } });
+      if (d.state === 'running'){ state = 'run'; label = 'Running... ' + d.pct + '%' + (d.eta ? ' (' + d.eta + ')' : '') }
+      else if (d.state === 'queued' && state !== 'run'){ state = 'wait'; label = 'Submitted. Waiting for another run to finish' + (d.ahead ? ' (' + d.ahead + ' ahead' + (d.eta ? ', ' + d.eta : '') + ')' : (d.eta ? ' (' + d.eta + ')' : '')) } });
     if (!state && submitting){ state = 'wait'; label = 'Submitting...' }
     HM.busy = !!state;
     if (state){ b.dataset.hm = state; b.dataset.label = label } else { delete b.dataset.hm; delete b.dataset.label }
