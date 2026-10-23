@@ -1,114 +1,98 @@
-# Hemlock (hemlock-docker)
+# Hemlock
 
-One self-hosted web app, one Docker image, two image-protection methods. Pick a method, upload one image or a whole batch from a
-phone or a computer, compare before and after, download the results.
+A small web app you run yourself that puts protective noise on artwork before you post it online. It bundles two methods in one container: Hemlock, a Nightshade-style method written for this project, and Mist v2.
 
-| Method | What it does | Speed |
-|---|---|---|
-| **Hemlock** | An independent, open-source take on the [Nightshade](https://nightshade.cs.uchicago.edu/) method. Adds faint, targeted changes so a model *trained* on the image learns the wrong thing. Gives you an ALT-text tag to post with the image. | about 20 s per image |
-| **Mist v2** | [Mist v2](https://github.com/psyker-team/mist-v2) (Apache-2.0, kept under `mist/`). Adds noise that disrupts copying an artist's style. | several minutes per image |
+It was built on a home server with a single GPU, so it does one job at a time and everyone else waits in line. Upload one image or a batch, wait, then press and hold a result to flip back to your original. On a desktop there's also a full-size view for checking pixels.
 
-Both are deterrents, not guarantees. Hemlock's protective effect has not been measured here (see `research/`). Keep your originals.
-Not affiliated with the Nightshade or Mist teams.
+Neither method is a guarantee. Nobody has measured here whether Hemlock actually changes what a model learns, and Mist's effect is whatever its authors report. Keep your originals.
 
-## Features
+## The two methods
 
-- Bulk upload (20 images per run for either method by default), per-image download, and a zip of everything
-- Before/after view: press and hold, or a slider. On desktop a **Full size** button opens the images at native resolution with Fit and 100% zoom
-- One live progress bar, a Stop button, a job queue, and automatic cleanup of uploads
-- Models are loaded only while needed. Hemlock's engine runs in its own process that is shut down after an idle timeout, so an idle
-  container holds a small web process and no VRAM; the next job pays a short load (about 10 s)
-- Layout adapts: phone-first, wider and larger on desktop
-- Optional password
+**Hemlock** nudges an image towards a different concept (say "dog" towards "car"), so that a model trained on lots of images like it could learn the wrong thing. It takes roughly 20 seconds to a minute and a half per image, and it gives you a tag to put in the image's ALT text when you post it.
 
-## Unraid
+**Mist v2** ([psyker-team/mist-v2](https://github.com/psyker-team/mist-v2), Apache-2.0, included under `mist/`) adds noise aimed at tools that copy an artist's style. It takes a few minutes per image.
 
-Install the Nvidia Driver plugin, then fetch the template from the Unraid terminal:
+Neither will change what a chat assistant says about a single image. They work on what a model learns from training data, not on what it sees at inference time.
+
+## Running it
+
+On Unraid, install the Nvidia Driver plugin and fetch the template from the terminal:
 
 ```bash
 wget -O /boot/config/plugins/dockerMan/templates-user/my-hemlock-docker.xml https://raw.githubusercontent.com/adman234/hemlock-docker/main/unraid/hemlock-docker.xml
 ```
 
-Then Docker tab, Add Container, choose `hemlock-docker` from the template list. The default web port is 7861 so it can sit next to mist-docker.
-The first start downloads Stable Diffusion 1.5 (about 5 GB, shared by both methods) and two small tagging models into the data folder.
-If you used mist-docker you can point the Data path at its appdata folder to reuse the Stable Diffusion download.
+Then add the container from the Docker tab. The web port defaults to 7861 so it can sit beside mist-docker. If you already have mist-docker's data folder, point the Data path at it and the Stable Diffusion download gets reused.
 
-## Docker
+With plain Docker:
 
 ```bash
 docker run -d --name hemlock --gpus all -p 7861:7860 -v /path/to/appdata:/data ghcr.io/adman234/hemlock-docker:latest
 ```
 
-### Settings (environment variables)
+The first start downloads Stable Diffusion 1.5 (about 5 GB, shared by both methods) and two small captioning models. The image itself is about 4.4 GB to pull, most of it PyTorch and the CUDA libraries.
 
-| Variable | Default | Meaning |
+### Settings
+
+All environment variables, all optional:
+
+| Variable | Default | What it does |
 |---|---|---|
-| `HEMLOCK_IDLE_UNLOAD_MINUTES` | 10 | Unload models after this many idle minutes. 0 unloads after every job, -1 never. |
-| `HEMLOCK_JOB_TTL_MINUTES` | 60 | Delete uploads and results after this long (checked every 5 minutes). |
-| `HEMLOCK_PASSWORD`, `HEMLOCK_USERNAME` | empty | Optional login (username defaults to `hemlock`). |
-| `HEMLOCK_MAX_FILES` / `MIST_MAX_FILES` | 20 / 20 | Images per run for each method. |
-| `MIST_MAX_SIDE`, `MIST_CLASS_IMAGES` | 4096 / 20 | Mist upload size cap, and its first-run comparison images. |
-| `HEMLOCK_QUEUE_MAX` | 20 | How many runs may wait. |
-| `HEMLOCK_CONCEPT_MODELS` | 1 | 0 skips the two tagging models (type the tag yourself). |
+| `HEMLOCK_IDLE_UNLOAD_MINUTES` | 10 | Frees the GPU and RAM after this long without a job. 0 frees after every job, -1 never. |
+| `HEMLOCK_JOB_TTL_MINUTES` | 60 | Uploads and results are deleted after this long. |
+| `HEMLOCK_PASSWORD`, `HEMLOCK_USERNAME` | none | Turns on a login. The username defaults to `hemlock`. |
+| `HEMLOCK_MAX_FILES`, `MIST_MAX_FILES` | 20, 20 | Images allowed per run for each method. |
+| `HEMLOCK_QUEUE_MAX` | 20 | How many runs can wait before new ones are refused. |
+| `HEMLOCK_CONCEPT_MODELS` | 1 | Set to 0 to skip the captioning models and type tags yourself. |
+| `MIST_MAX_SIDE`, `MIST_CLASS_IMAGES` | 4096, 20 | Mist's resize cap and the number of comparison images it makes on first run. |
 | `PUID`, `PGID`, `UMASK` | 99, 100, 022 | File ownership. |
 
-Put `concepts.txt` (one word per line) or `mapping.json` (concept to target) in the data folder to override Hemlock's built-in word list.
+Drop a `concepts.txt` (one word per line) or a `mapping.json` into the data folder to replace Hemlock's built-in word list.
 
-## Choosing options (Hemlock)
+Models are only in memory while a job needs them. Hemlock runs in its own process that gets shut down when idle, which is what actually gives the memory back. The next job after that takes about ten seconds longer to start.
 
-Measured on an RTX 4070 SUPER at 512x512 (values are per-pixel changes on a 0 to 255 scale):
+## Picking Hemlock settings
 
-| Strength | Largest change | Average | Looks like |
+These numbers are from an RTX 4070 SUPER on 512 pixel images. "Change" means how far a pixel moves on a 0 to 255 scale.
+
+| Strength | Biggest change | Average change | In practice |
 |---|---|---|---|
-| Light | 6 | 1.1 | nearly invisible (about 44 dB) |
-| Balanced | 12 | 2.4 to 2.9 | faint grain when zoomed in (about 37 dB) |
-| Strong | 20 | 5.1 | texture on flat areas (about 31 dB), about twice as slow |
+| Light | 6 | 1.1 | Close to invisible |
+| Balanced | 12 | 2.4 to 2.9 | A little grain if you zoom in |
+| Strong | 20 | 5.1 | Texture on flat areas, and it takes about twice as long |
 
-| Render quality | Time per image | What changes |
+| Render quality | Time per image | What it does |
 |---|---|---|
-| Fast | about 20 s | 100 passes, 1 random crop per pass |
-| Better | about 30 s | 150 passes, 2 crops |
-| Thorough | about 1 min | 300 passes, 3 crops |
-| Maximum | about 1.5 min | 500 passes, 6 crops |
+| Fast | about 20 s | 100 passes, one random crop each |
+| Better | about 30 s | 150 passes, two crops |
+| Thorough | about 1 min | 300 passes, three crops |
+| Maximum | about 1.5 min | 500 passes, six crops |
 
-Strength is how much a pixel may change; render quality is how long it optimises, and slower options test more crops so the effect should
-hold up better after cropping or resizing. Defaults are Light and Better. Whether any setting poisons a model more was not measured.
+Strength limits how far pixels can move. Render quality is how long it keeps optimising, and the slower settings test more crops, which should help the effect survive cropping and resizing. The defaults are Light and Better. Nobody has checked whether a slower setting poisons any better.
 
 ## ALT text
 
-Hemlock names each image with a tag (detected automatically, or typed for a single image). Nightshade's advice is to include the tag in the
-image's ALT text when you post it. The results show the suggested ALT text per image with a **Copy ALT** button, plus one combined list
-(and a `hemlock-tags.txt` inside the zip). It is also written into the image file's metadata by default, but most sites strip metadata, so
-paste it into the ALT field yourself. An optional template (for example `Digital painting of a {tag}`) turns the bare tag into a sentence.
+Hemlock tags each image with a word (found automatically, or typed in if you upload one image). Nightshade's advice is to put that word in the image's ALT text when you post. Each result has a Copy ALT button, and the zip includes a `hemlock-tags.txt`. A template like `Digital painting of a {tag}` turns the bare word into a sentence.
 
-## Image size
+The ALT text is also written into the image's metadata by default, but most sites strip metadata, so paste it into the ALT field yourself.
 
-One image holds both methods, so torch and the CUDA libraries (about 4 GB compressed) are stored once instead of twice. Models and caches
-live in the data volume, not in the image.
+## How Hemlock came about
 
-## Repository layout
+The method was worked out by reading the Nightshade 1.1 Windows app's Python bytecode and running it. The notes, the evidence behind each claim, and the comparison against the original are in `research/`. The short version:
 
-| Path | Content |
+- Stable Diffusion draws a target picture of a different concept, then the image is nudged until the Stable Diffusion image encoder sees it much like the target, while a perceptual loss keeps the changes small.
+- On the same GPU and assets, the optimiser gives bit-identical results to the original in four of five test cases. The fifth differs only by GPU nondeterminism, which the original also shows against itself. Output quality statistics match over 22 paired runs.
+- The original has some bugs (GIF files crash it, EXIF orientation gets applied twice, the "already shaded" check never matches its own filenames). Hemlock handles those differently, and `research/known-limitations.md` lists every deliberate difference.
+- The container runs a newer diffusers than the original because the old one can't read the current Stable Diffusion VAE file.
+
+It contains no Nightshade code or weights, and it's not affiliated with the Nightshade or Mist teams.
+
+## What's in the repo
+
+| Path | What's there |
 |---|---|
-| `docker/` | web app, model manager, Hemlock worker process, viewer, entrypoint, smoke test |
-| `mist/` | the mist-docker repository, merged with its history (Apache-2.0, see `mist/LICENSE`) |
-| `nightshade-reimplementation/` | the `nsre` library and CLI (independent Nightshade-style implementation) with tests |
-| `research/` | reverse-engineering notes, evidence ledger, experiments and parity report |
-| `unraid/hemlock-docker.xml` | Unraid template |
-
-No Nightshade code, disassembly, weights or proprietary assets are stored here.
-
-## What the research found
-
-Details in `research/` (start with `evidence.md` and `parity-report.md`).
-
-- The Nightshade 1.1 Windows app is a PyInstaller build with plain Python 3.11 bytecode. No weights ship; nine assets download on first run.
-- The method: Stable Diffusion img2img makes a target image of a different concept, then a perturbation is optimised so the SD VAE encoder
-  latent of the perturbed image matches the target's, under an LPIPS (vgg16) penalty and a clamp of 1.3 x max_change.
-- Parity with the original, on the same GPU and assets: parameters and deterministic stages identical (115/115 checks, one deliberate
-  deviation), the optimizer bit-identical for the same inputs in 4 of 5 cases (the fifth differs only by CUDA nondeterminism that the original
-  shows against itself), selection rules identical, and end-to-end statistics equal.
-- The container uses diffusers 0.25.1, because the original's 0.14 cannot read the current Stable Diffusion VAE file (E-103).
-- Defects found in the original: GIF input crashes, EXIF orientation is applied twice, no valid input ends in `UnboundLocalError`, the
-  "already shaded" filter never matches its own names, render level -1 raises `KeyError`. The original is not repeatable run to run.
-- Open: whether the protection works against real model training, and licence terms for derived work.
+| `docker/` | The web app, model manager, Hemlock worker, entrypoint and smoke test |
+| `mist/` | The mist-docker repository, merged in with its history (Apache-2.0, see `mist/LICENSE`) |
+| `nightshade-reimplementation/` | The `nsre` library and command line tool, with tests |
+| `research/` | Reverse-engineering notes, experiments and the parity report |
+| `unraid/hemlock-docker.xml` | The Unraid template |

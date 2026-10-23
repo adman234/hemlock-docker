@@ -13,6 +13,9 @@ CSS = """
 button.lg,button.primary{min-height:52px;font-size:1.05rem}
 #hero h1{margin:.2em 0 .1em;font-size:1.9rem}
 #hero p{margin:.2em 0;opacity:.8}
+.hm-oss{display:inline-flex;align-items:center;gap:.45em;margin-left:1em;color:inherit;text-decoration:none;opacity:.85}
+.hm-oss:hover{opacity:1;text-decoration:underline}
+.hm-oss svg{flex:none}
 #status{min-height:2.8rem;overflow-anchor:none}
 .note{border:1px solid var(--border-color-primary,#8884);border-left:4px solid #10b981;border-radius:10px;padding:10px 14px;margin:10px 0;background:var(--background-fill-secondary,#8881);font-size:.92rem;line-height:1.45}
 .about{font-size:.92rem;line-height:1.5}.about p,.about ul{margin:.5em 0}.about li{margin:.35em 0}
@@ -132,6 +135,15 @@ HEAD = """
     var fm = closest(ev.target, '.fs-mode'); if (fm){ var s2 = HM.fsStage(); var sl = s2.dataset.mode === 'slide'; s2.dataset.mode = sl ? 'hold' : 'slide'; fm.textContent = sl ? 'Slider' : 'Hold'; fm.classList.toggle('on', !sl); return }
     var ft = closest(ev.target, '.fs-fit'); if (ft){ var s3 = HM.fsStage(); var full = s3.dataset.fit === 'full'; HM.fsSetFit(full ? 'fit' : 'full'); return }
   });
+  var REPO = 'https://github.com/adman234/hemlock-docker';
+  function addFooterLink(){
+    var f = document.querySelector('footer'); if (!f || f.querySelector('.hm-oss')) return !!(f && f.querySelector('.hm-oss'));
+    var a = document.createElement('a'); a.className = 'hm-oss'; a.href = REPO; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.title = 'Hemlock is open source, view it on GitHub';
+    a.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg><span>Open source on GitHub</span>';
+    f.appendChild(a); return true;
+  }
+  var footerTries = 0, footerTimer = setInterval(function(){ if (addFooterLink() || ++footerTries > 120) clearInterval(footerTimer) }, 500);
   var lastStatus = null;
   function pollStatus(){
     var el = document.getElementById('status'); if (!el) return;
