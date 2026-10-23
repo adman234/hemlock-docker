@@ -377,11 +377,11 @@ def build():
         files = gr.File(label=f"Your images (up to {MAX_FILES})", file_count="multiple", file_types=["image"])
         intensity = gr.Radio(
             list(INTENSITY), value="Balanced", label="Strength",
-            info="Stronger poisons more, but the changes become easier to see.",
+            info="How much each pixel may change. Light is nearly invisible, Balanced shows faint grain when zoomed in, Strong can show texture on flat areas. Strong also takes about twice as long.",
         )
         quality = gr.Radio(
             list(QUALITY), value="Fast", label="Render quality",
-            info="Slower rendering gives a stronger effect. Fast is about 20 s per image on a mid-range GPU.",
+            info="How long it optimises. Fast about 20 s per image, Better 30 s, Thorough 1 min, Maximum 1.5 min on a mid-range GPU. Slower options use more passes and test more random crops, so the effect holds up better after cropping or resizing.",
         )
         with gr.Accordion("More options", open=False):
             tag = gr.Textbox(
