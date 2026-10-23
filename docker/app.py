@@ -241,7 +241,8 @@ def build():
 
 if __name__ == "__main__":
     JOBS.mkdir(parents=True, exist_ok=True)
-    threading.Thread(target=ensure_model, daemon=True).start()
+    if not os.environ.get("MIST_SKIP_MODEL"):
+        threading.Thread(target=ensure_model, daemon=True).start()
     user, pw = os.environ.get("MIST_USERNAME", ""), os.environ.get("MIST_PASSWORD", "")
     auth = (user or "mist", pw) if pw else None
     build().queue(default_concurrency_limit=1, max_size=QUEUE_MAX).launch(

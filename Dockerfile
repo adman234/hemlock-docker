@@ -34,11 +34,14 @@ COPY attacks ./attacks
 COPY lora_diffusion ./lora_diffusion
 COPY data/MIST.png ./data/MIST.png
 COPY MIST_logo.png ./MIST_logo.png
-COPY docker/app.py docker/entrypoint.sh ./
+COPY docker/app.py docker/entrypoint.sh docker/smoke.py ./
 RUN chmod +x /app/entrypoint.sh
 
 # Fail the build early if the old Mist code no longer imports against these library versions
 RUN python -c "import attacks.mist, gradio; print('imports ok')"
+
+# ...and that the web page really renders (Gradio and Starlette versions have to match)
+RUN python /app/smoke.py
 
 EXPOSE 7860
 VOLUME /data
