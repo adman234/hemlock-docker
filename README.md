@@ -7,6 +7,7 @@ paths, so `docker/app.py` replaces it for shared use. The Mist code itself is un
 - Image: `ghcr.io/adman234/mist-docker:latest` (NVIDIA GPU, CUDA 12.8 wheels, Turing through Blackwell)
 - Stable Diffusion 1.5 (about 5 GB) downloads into the data volume on first start
 - One job at a time, the rest queue. Uploads are deleted after an hour
+- Phone friendly page. Press and hold a result to see your original (or switch to a slider), then download
 - Mist raises the cost of copying an image, it is not a guarantee
 
 ## Unraid
@@ -35,6 +36,7 @@ docker run -d --name mist --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -p 7860
 | `MIST_QUEUE_MAX` | 20 | Runs allowed to wait |
 | `MIST_CLASS_IMAGES` | 20 | Comparison images made on the first run (upstream uses 50) |
 | `MIST_JOB_TTL_MINUTES` | 60 | How long uploads and results are kept |
+| `MIST_PREVIEW_SIDE` | 1600 | Longest side of the screen-sized copies used by the compare view |
 | `PUID` / `PGID` / `UMASK` | 99 / 100 / 022 | Owner of files in `/data` |
 
 ---

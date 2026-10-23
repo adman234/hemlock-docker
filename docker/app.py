@@ -4,6 +4,7 @@ The upstream mist-webui.py asks for server-side folder paths. This one takes upl
 them in a throwaway job folder, and hands back the misted images (and a zip). One job runs at a time because
 each one needs the whole GPU; everyone else waits in the Gradio queue.
 """
+import html
 import os
 import re
 import shutil
@@ -29,6 +30,7 @@ MAX_SIDE = int(os.environ.get("MIST_MAX_SIDE", "4096"))
 QUEUE_MAX = int(os.environ.get("MIST_QUEUE_MAX", "20"))
 NUM_CLASS_IMAGES = os.environ.get("MIST_CLASS_IMAGES", "20")
 JOB_TTL = int(os.environ.get("MIST_JOB_TTL_MINUTES", "60")) * 60
+PREVIEW_SIDE = int(os.environ.get("MIST_PREVIEW_SIDE", "1600"))
 PORT = int(os.environ.get("MIST_PORT", "7860"))
 HAS_GPU = torch.cuda.is_available()
 
@@ -37,6 +39,8 @@ MODES = {
     "Mode 2 (semantic + textural)": "fused",
     "Mode 3 (anti-DreamBooth)": "anti-db",
 }
+
+STRENGTHS = {"Light": 6, "Balanced": 12, "Strong": 18}
 
 _model_state = {"ready": False, "error": "", "msg": "Starting"}
 
@@ -128,7 +132,7 @@ def run_job(files, strength, mode, epochs, keep_size, prompt, progress=gr.Progre
     cmd = [
         sys.executable, "attacks/mist.py",
         "--mode", MODES[mode],
-        "--pgd_eps", str(float(strength) / 255.0),
+        "--pgd_eps", str(STRENGTHS.get(strength, 12) / 255.0),
         "--instance_data_dir", str(inp),
         "--output_dir", str(out),
         "--pretrained_model_name_or_path", str(MODEL_DIR),
@@ -172,68 +176,168 @@ def run_job(files, strength, mode, epochs, keep_size, prompt, progress=gr.Progre
 
     final = job / "result"
     final.mkdir()
-    outputs = []
+    items = []
     for r in results:
         key = r.name.split("_noise_")[1][:-4]
-        dest = final / f"{names.get(key, key)}_misted.png"
+        name = names.get(key, key)
+        dest = final / f"{name}_misted.png"
         shutil.move(str(r), dest)
-        outputs.append(str(dest))
+        items.append(make_preview(inp / f"{key}.png", dest, final, key, name))
     zpath = final / "misted_images.zip"
     with zipfile.ZipFile(zpath, "w") as z:
-        for o in outputs:
-            z.write(o, Path(o).name)
+        for it in items:
+            z.write(it["full"], Path(it["full"]).name)
     shutil.rmtree(inp, ignore_errors=True)
     shutil.rmtree(out, ignore_errors=True)
-    return outputs, [*outputs, str(zpath)]
+    return compare_html(items), str(zpath), gr.update(visible=True)
+
+
+def make_preview(orig_path, misted_path, final, key, name):
+    """Screen-sized JPEG copies of both images for the comparison view (phones should not load 4000 px PNGs).
+    When Mist did not keep the original size its output is a centre crop, so the original gets the same crop."""
+    mist = Image.open(misted_path).convert("RGB")
+    orig = Image.open(orig_path).convert("RGB")
+    if orig.size != mist.size:
+        orig = ImageOps.fit(orig, mist.size, Image.LANCZOS)
+    scale = min(1.0, PREVIEW_SIDE / max(mist.size))
+    if scale < 1.0:
+        size = (round(mist.width * scale), round(mist.height * scale))
+        mist, orig = mist.resize(size, Image.LANCZOS), orig.resize(size, Image.LANCZOS)
+    mist.save(final / f"{key}_p.jpg", quality=92)
+    orig.save(final / f"{key}_o.jpg", quality=92)
+    return {
+        "name": name,
+        "full": str(misted_path),
+        "mist": str(final / f"{key}_p.jpg"),
+        "orig": str(final / f"{key}_o.jpg"),
+        "w": mist.width,
+        "h": mist.height,
+    }
+
+
+# Inline handlers on purpose: Gradio sets HTML component content with innerHTML, which never runs <script> tags.
+_HOLD_ON = "this.classList.add('holding');try{this.setPointerCapture(event.pointerId)}catch(e){}"
+_HOLD_OFF = "this.classList.remove('holding')"
+_KEY_ON = "if(event.key===' '||event.key==='Enter'){event.preventDefault();this.classList.add('holding')}"
+_KEY_OFF = "if(event.key===' '||event.key==='Enter'){this.classList.remove('holding')}"
+_MODE = (
+    "var c=this.closest('.cmp');var s=c.dataset.mode==='slide';c.dataset.mode=s?'hold':'slide';"
+    "this.textContent=s?'Switch to slider':'Switch to hold';"
+    "c.querySelector('.hint').textContent=s?'Press and hold the image to see the original':'Drag the slider: original on the left'"
+)
+
+
+def compare_html(items):
+    e = html.escape
+    cards = []
+    for it in items:
+        cards.append(f"""
+<div class="cmp" data-mode="hold" style="--ar:{it['w']} / {it['h']}">
+  <div class="cmp-head"><span class="cmp-name">{e(it['name'])}</span>
+    <a class="cmp-dl" href="file={e(it['full'])}" download="{e(it['name'])}_misted.png">Download</a></div>
+  <div class="stage" tabindex="0" role="img" aria-label="Protected image. Press and hold, or hold Space, to see the original."
+       onpointerdown="{_HOLD_ON}" onpointerup="{_HOLD_OFF}" onpointercancel="{_HOLD_OFF}"
+       onlostpointercapture="{_HOLD_OFF}" onkeydown="{_KEY_ON}" onkeyup="{_KEY_OFF}" onblur="{_HOLD_OFF}"
+       oncontextmenu="return false">
+    <img class="img-m" src="file={e(it['mist'])}" alt="" draggable="false">
+    <img class="img-o" src="file={e(it['orig'])}" alt="" draggable="false">
+    <span class="tag tag-m">Protected</span><span class="tag tag-o">Original</span>
+    <input class="range" type="range" min="0" max="100" value="50" aria-label="Compare slider"
+           oninput="this.closest('.cmp').style.setProperty('--pos',this.value+'%')">
+    <div class="divider"></div>
+  </div>
+  <div class="cmp-foot"><span class="hint">Press and hold the image to see the original</span>
+    <button type="button" class="cmp-mode" onclick="{_MODE}">Switch to slider</button></div>
+</div>""")
+    return '<div class="cmp-list">' + "".join(cards) + "</div>"
 
 
 def status_text():
     if _model_state["ready"]:
         dev = torch.cuda.get_device_name(0) if HAS_GPU else "CPU only (slow)"
-        return f"Ready on {dev}."
-    return _model_state["error"] or _model_state["msg"] + "..."
+        return f"<div class='pill ok'>Ready on {html.escape(dev)}</div>"
+    if _model_state["error"]:
+        return f"<div class='pill bad'>{html.escape(_model_state['error'])}</div>"
+    return f"<div class='pill wait'>{html.escape(_model_state['msg'])}...</div>"
+
+
+CSS = """
+.gradio-container{max-width:760px !important;margin:0 auto !important;padding-left:12px !important;padding-right:12px !important}
+.gradio-container input,.gradio-container textarea{font-size:16px !important}  /* stops iOS zooming on focus */
+button.lg,button.primary{min-height:52px;font-size:1.05rem}
+#hero h1{margin:.2em 0 .1em;font-size:1.9rem}
+#hero p{margin:.2em 0;opacity:.8}
+.pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85rem;margin:6px 0}
+.pill.ok{background:#1f9d5533;color:#1f9d55}.pill.wait{background:#d9a40033;color:#b58900}.pill.bad{background:#d6336c33;color:#d6336c}
+.cmp-list{display:flex;flex-direction:column;gap:20px}
+.cmp{border:1px solid var(--border-color-primary,#8884);border-radius:14px;padding:10px;background:var(--background-fill-secondary,#8881)}
+.cmp-head,.cmp-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.cmp-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}
+.cmp-dl,.cmp-mode{padding:8px 14px;min-height:40px;border-radius:10px;border:1px solid var(--border-color-primary,#8886);
+  background:var(--button-secondary-background-fill,#8882);color:inherit;font-size:.9rem;text-decoration:none;cursor:pointer;
+  display:inline-flex;align-items:center}
+.stage{position:relative;margin:10px 0;border-radius:10px;overflow:hidden;aspect-ratio:var(--ar);width:100%;max-height:75vh;
+  background:#0003;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;outline:none}
+.stage:focus-visible{box-shadow:0 0 0 3px #7c5cff88}
+.stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
+.img-o{opacity:0}
+.stage.holding .img-o{opacity:1}
+.tag{position:absolute;left:8px;top:8px;padding:3px 10px;border-radius:999px;font-size:.78rem;color:#fff;background:#000a;pointer-events:none}
+.tag-o{opacity:0}
+.stage.holding .tag-o{opacity:1}.stage.holding .tag-m{opacity:0}
+.range,.divider{display:none}
+.cmp[data-mode=slide] .img-o{opacity:1;clip-path:inset(0 calc(100% - var(--pos,50%)) 0 0)}
+.cmp[data-mode=slide] .tag-o{opacity:1;left:8px}.cmp[data-mode=slide] .tag-m{left:auto;right:8px}
+.cmp[data-mode=slide] .stage{cursor:ew-resize}
+.cmp[data-mode=slide] .range{display:block;position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:ew-resize;z-index:3}
+.cmp[data-mode=slide] .divider{display:block;position:absolute;top:0;bottom:0;left:var(--pos,50%);width:3px;margin-left:-1.5px;background:#fff;
+  box-shadow:0 0 6px #0008;pointer-events:none;z-index:2}
+.hint{opacity:.7;font-size:.85rem}
+@media (max-width:520px){#hero h1{font-size:1.6rem}.cmp-name{max-width:50%}}
+"""
 
 
 def build():
-    with gr.Blocks(title="Mist", analytics_enabled=False) as demo:
-        gr.Markdown(
-            "# Mist\n"
-            "Adds a faint noise to your artwork so AI models that try to copy its style or content produce "
-            "scrambled results. Upload, wait a few minutes per image, download. Your images are deleted from "
-            "the server after an hour.\n\n"
-            "Mist raises the cost of copying an image, it is not a guarantee. Keep your originals."
+    with gr.Blocks(
+        title="Mist", analytics_enabled=False, css=CSS,
+        theme=gr.themes.Soft(primary_hue="violet", neutral_hue="slate"),
+    ) as demo:
+        gr.HTML(
+            "<div id='hero'><h1>Mist</h1>"
+            "<p>Adds a faint noise to your artwork so AI models that try to copy its style produce scrambled results.</p>"
+            "<p>Upload, wait a few minutes per image, then press and hold the result to compare it with your original. "
+            "Images are deleted from the server after an hour.</p></div>"
         )
-        status = gr.Markdown(status_text())
-        with gr.Row():
-            with gr.Column():
-                files = gr.File(
-                    label=f"Images (up to {MAX_FILES})",
-                    file_count="multiple",
-                    file_types=["image"],
-                )
-                strength = gr.Slider(
-                    1, 32, step=1, value=12, label="Strength",
-                    info="Higher protects more but the noise gets easier to see.",
-                )
-                keep_size = gr.Checkbox(True, label="Keep the original image size")
-                with gr.Accordion("More options", open=False):
-                    mode = gr.Radio(list(MODES), value=list(MODES)[0], label="Mode")
-                    epochs = gr.Slider(
-                        1, 10, step=1, value=5, label="Passes",
-                        info="More passes take longer and protect somewhat better.",
-                    )
-                    prompt = gr.Textbox(
-                        label="Short description of the images", value="a picture",
-                        info="Optional, e.g. 'an anime girl' or 'a landscape painting'.",
-                    )
-                go = gr.Button("Protect images", variant="primary")
-            with gr.Column():
-                gallery = gr.Gallery(label="Result", columns=2, height=420)
-                downloads = gr.File(label="Downloads", file_count="multiple")
+        status = gr.HTML(status_text())
+        files = gr.File(
+            label=f"Your images (up to {MAX_FILES})",
+            file_count="multiple",
+            file_types=["image"],
+        )
+        strength = gr.Radio(
+            list(STRENGTHS), value="Balanced", label="Strength",
+            info="Stronger protects more, but the noise becomes easier to see.",
+        )
+        keep_size = gr.Checkbox(True, label="Keep the original image size")
+        with gr.Accordion("More options", open=False):
+            mode = gr.Radio(list(MODES), value=list(MODES)[0], label="Mode")
+            epochs = gr.Slider(
+                1, 10, step=1, value=5, label="Passes",
+                info="More passes take longer and protect somewhat better.",
+            )
+            prompt = gr.Textbox(
+                label="Short description of the images", value="a picture",
+                info="Optional, e.g. 'an anime girl' or 'a landscape painting'.",
+            )
+        go = gr.Button("Protect images", variant="primary", size="lg")
+        gr.Markdown("Mist makes copying harder, it is not a guarantee. Keep your originals.")
+        result = gr.HTML(label="Result")
+        with gr.Group(visible=False) as dl_group:
+            zip_file = gr.File(label="Download everything (zip)")
         go.click(
             run_job,
             [files, strength, mode, epochs, keep_size, prompt],
-            [gallery, downloads],
+            [result, zip_file, dl_group],
         )
         demo.load(status_text, None, status)
     return demo
