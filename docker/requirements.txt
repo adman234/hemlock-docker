@@ -1,0 +1,21 @@
+# Pinned to the era of the Mist code (diffusers 0.25 API). Torch is installed separately in the Dockerfile
+# from the cu128 index, because Blackwell (RTX 50xx) cards need it.
+numpy==1.26.4
+diffusers==0.25.1
+transformers==4.36.2
+huggingface_hub==0.25.2
+accelerate==0.25.0
+safetensors==0.4.5
+datasets==2.16.1
+tokenizers<0.19
+ftfy
+scipy
+fire
+tqdm
+colorama
+nvidia-ml-py
+tensorboard
+wandb
+Pillow
+gradio==4.44.1
+pydantic==2.10.6

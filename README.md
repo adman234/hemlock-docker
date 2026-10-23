@@ -1,3 +1,44 @@
+# Mist v2, self-hosted (Docker / Unraid)
+
+This repo is [psyker-team/mist-v2](https://github.com/psyker-team/mist-v2) (Apache-2.0) plus a small web service around it:
+open the page, upload images, wait, download the protected images or a zip. The upstream web UI wants server-side folder
+paths, so `docker/app.py` replaces it for shared use. The Mist code itself is untouched.
+
+- Image: `ghcr.io/adman234/mist-docker:latest` (NVIDIA GPU, CUDA 12.8 wheels, Turing through Blackwell)
+- Stable Diffusion 1.5 (about 5 GB) downloads into the data volume on first start
+- One job at a time, the rest queue. Uploads are deleted after an hour
+- Mist raises the cost of copying an image, it is not a guarantee
+
+## Unraid
+
+Install the Nvidia Driver plugin, then fetch the template from the Unraid terminal:
+
+```bash
+wget -O /boot/config/plugins/dockerMan/templates-user/my-mist-docker.xml https://raw.githubusercontent.com/adman234/mist-docker/main/unraid/mist-docker.xml
+```
+
+In the Docker tab choose **Add Container**, pick **mist-docker** from the template list, and apply. The web UI is on port 7860.
+
+## Plain Docker
+
+```bash
+docker run -d --name mist --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -p 7860:7860 -v mist-data:/data ghcr.io/adman234/mist-docker:latest
+```
+
+## Settings
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `MIST_PASSWORD` / `MIST_USERNAME` | empty / `mist` | Basic login. No password means no login |
+| `MIST_MAX_FILES` | 4 | Images per run |
+| `MIST_MAX_SIDE` | 4096 | Longest side before an upload is shrunk |
+| `MIST_QUEUE_MAX` | 20 | Runs allowed to wait |
+| `MIST_CLASS_IMAGES` | 20 | Comparison images made on the first run (upstream uses 50) |
+| `MIST_JOB_TTL_MINUTES` | 60 | How long uploads and results are kept |
+| `PUID` / `PGID` / `UMASK` | 99 / 100 / 022 | Owner of files in `/data` |
+
+---
+
 <p align="center">
 <br>
 <!-- <img  src="mist_logo.png"> -->

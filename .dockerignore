@@ -1,0 +1,12 @@
+.git
+.github
+unraid
+docs
+assets
+eval
+ldm
+stable-diffusion
+output
+scripts
+*.ipynb
+__pycache__
