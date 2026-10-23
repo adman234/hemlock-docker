@@ -61,6 +61,8 @@ class ModelManager:
                 with self._state_lock:
                     self._last_used = time.time()
                     self._busy = False
+                    if kind == "mist":  # its subprocess has already exited and freed everything, so nothing is "loaded"
+                        self._kind = None
                 if self.idle_seconds == 0:
                     self._unload()
 

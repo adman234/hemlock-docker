@@ -72,7 +72,8 @@ def _pick(name, options, fallback):
     return fallback
 
 
-DEF_METHOD = METHOD_M if (os.environ.get("HEMLOCK_DEFAULT_METHOD") or "").strip().lower() == "mist" else METHOD_H
+MIST_ENABLED = (os.environ.get("HEMLOCK_ENABLE_MIST") or "1").strip().lower() not in ("0", "false", "no", "off")
+DEF_METHOD = METHOD_M if MIST_ENABLED and (os.environ.get("HEMLOCK_DEFAULT_METHOD") or "").strip().lower() == "mist" else METHOD_H
 DEF_H_STRENGTH = _pick("HEMLOCK_DEFAULT_STRENGTH", H_STRENGTH, "Balanced")
 DEF_H_QUALITY = _pick("HEMLOCK_DEFAULT_QUALITY", H_QUALITY, "Better")
 DEF_M_STRENGTH = _pick("MIST_DEFAULT_STRENGTH", M_STRENGTH, "Balanced")
@@ -154,6 +155,19 @@ images learns the wrong thing. Gives each image a tag to put in its ALT text.</l
 <p>Good starting point: Hemlock with Light and Fast on a slow card, Balanced and Better on a fast one. Times are rough and depend on the GPU and the queue. Neither method is a guarantee.</p>
 </div>
 """
+
+if not MIST_ENABLED:  # Hemlock only: take every mention of Mist out of the help texts
+    import re as _re
+
+    for _name in ("ABOUT_HTML", "INFO_HTML"):
+        _t = globals()[_name]
+        _t = _re.sub(r"<li><b>Mist[^<]*</b>.*?</li>\s*", "", _t, flags=_re.S)
+        _t = _re.sub(r"<p><b>Mist settings</b></p>\s*<ul>.*?</ul>\s*", "", _t, flags=_re.S)
+        _t = (_t.replace("Both methods run an optimisation.", "Hemlock runs an optimisation.")
+              .replace("the image model both methods target", "the image model Hemlock targets")
+              .replace("Neither method is a guarantee.", "It is not a guarantee.")
+              .replace("<p><b>Methods</b></p>", "<p><b>Method</b></p>"))
+        globals()[_name] = _t
 
 MANAGER = ModelManager(IDLE_SECONDS)
 _setup = {"ready": False, "error": "", "msg": "Starting"}
@@ -679,6 +693,8 @@ def run(method, files, h_strength, h_quality, tag, target, seed, template, write
         raise gr.Error(_setup["error"] or _setup["msg"] + ". Try again in a few minutes.")
     if not files:
         raise gr.Error("Add at least one image.")
+    if method == METHOD_M and not MIST_ENABLED:
+        raise gr.Error("Mist is turned off on this server.")
     limit = MAX_FILES_H if method == METHOD_H else MAX_FILES_M
     if len(files) > limit:
         raise gr.Error(f"At most {limit} images per run for this method.")
@@ -720,13 +736,13 @@ def build():
             "Your images may wait in line behind someone else's, which can take a few minutes.</div>"
         )
         gr.HTML(status_text(), elem_id="status")
-        method = gr.Radio([METHOD_H, METHOD_M], value=DEF_METHOD, label="Method",
+        method = gr.Radio([METHOD_H, METHOD_M], value=DEF_METHOD, label="Method", visible=MIST_ENABLED,
                           info=f"Hemlock poisons what AI learns from the image (Nightshade-style, roughly {fmt_est(h_sec('Fast'))} to {fmt_est(h_sec('Maximum'))} per image). "
                                f"Mist adds noise that disrupts copying an artist's style (very slow, about {fmt_est(M_BASE * SPEED)} per image).")
         with gr.Row():
             with gr.Column(scale=3, min_width=320):
                 files = gr.File(label="Your images", file_count="multiple", file_types=["image"], height=380)
-                gr.HTML("<div class='hint'>" + (f"Up to {MAX_FILES_H} images per run." if MAX_FILES_H == MAX_FILES_M
+                gr.HTML("<div class='hint'>" + (f"Up to {MAX_FILES_H} images per run." if (MAX_FILES_H == MAX_FILES_M or not MIST_ENABLED)
                         else f"Up to {MAX_FILES_H} images per run with Hemlock, {MAX_FILES_M} with Mist.") + "</div>")
             with gr.Column(scale=2, min_width=320):
                 with gr.Group(visible=DEF_METHOD == METHOD_H) as h_main:

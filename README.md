@@ -54,6 +54,7 @@ All environment variables, all optional:
 | `HEMLOCK_QUEUE_MAX` | 20 | How many runs can wait before new ones are refused. |
 | `HEMLOCK_DEFAULT_STRENGTH`, `HEMLOCK_DEFAULT_QUALITY` | Balanced, Better | What the Hemlock form starts on: Light, Balanced or Strong, and Fast, Better, Thorough or Maximum. |
 | `MIST_DEFAULT_STRENGTH`, `MIST_DEFAULT_PASSES` | Balanced, 5 | What the Mist form starts on: Light, Balanced or Strong, and 1 to 10 passes. |
+| `HEMLOCK_ENABLE_MIST` | 1 | Set to `0` to turn Mist off. The method picker disappears and the page is Hemlock only. Sensible on cards with 8 GB or less. |
 | `HEMLOCK_DEFAULT_METHOD` | hemlock | Set to `mist` to open on Mist instead. |
 | `HEMLOCK_SPEED_FACTOR` | 4.5 | Scales the starting time guesses. 4.5 is about a GTX 1070, 1 is about an RTX 4070 SUPER. After a few runs the server uses the times it measured itself. |
 | `HEMLOCK_CONCEPT_MODELS` | 1 | Set to 0 to skip the captioning models and type tags yourself. |
