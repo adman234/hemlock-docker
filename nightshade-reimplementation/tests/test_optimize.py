@@ -79,6 +79,13 @@ def test_crop_randomness_changes_result_on_nonsquare(encoder, small_params):
     assert not torch.equal(a.adv, b.adv)
 
 
+def test_og_size_roundtrip_keeps_shape_and_bounds(encoder, small_params):
+    src, tgt = rand_t(512, 640, 1), rand_t(512, 640, 2)
+    res = core_optimize(src, tgt, small_params, encoder, fake_lpips, rng=random.Random(0), og_size=(1500, 1875))
+    assert res.adv.shape == src.shape
+    assert res.modifier.abs().max().item() <= small_params.max_change * CLAMP_SLACK + 1e-6
+
+
 def test_square_image_is_deterministic_without_rng_state(encoder, small_params):
     src, tgt = rand_t(512, 512, 1), rand_t(512, 512, 2)
     a = core_optimize(src, tgt, small_params, encoder, fake_lpips, rng=random.Random(1))

@@ -1,0 +1,2 @@
+﻿$env:USERPROFILE='C:\ns\home'; $env:HOME='C:\ns\home'; $env:NLTK_DATA='C:\ns\nltk_data'; $env:HF_HUB_OFFLINE='1'; $env:TRANSFORMERS_OFFLINE='1'; $env:PYTHONWARNINGS='ignore'
+function Ref($img,$out,$mode,$rq,$tgt,$con,$seed){ $a=@('-I','C:\Users\Adam\Documents\GitHub\hemlock-docker\research\tools\ref_run.py','C:\ns\ref',$img,$out,$mode,$rq,$tgt,$con); if($seed -ne $null){$a+=$seed}; & C:\ns\refenv\Scripts\python.exe @a 2>$null | Select-String '^RESULT' | % { $_.Line.Substring(7) } }

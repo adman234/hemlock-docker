@@ -55,3 +55,14 @@ HIGH intensity adds 200 steps to every row. The two UI time columns are the two 
 ## Present but unused
 
 `lr_const = 0.005`, `n_runs = 1` (E-033); sign-gradient update branch (dead, E-053).
+
+## Measured against the table (4070 SUPER, 512x512 DEFAULT)
+
+| GUI rq | steps x eot | original time | nsre time | MAE (original / nsre) |
+|---|---|---|---|---|
+| 0 | 100 x 1 | 27 s | 19 s | 2.87 / 2.72 |
+| 1 | 150 x 2 | 33 s | 24 s | 2.75 / 2.80 |
+| 2 | 300 x 3 | 56 s | 52 s | 3.52 / 3.31 |
+| 3 | 500 x 6 | 92 s | 82 s | 4.09 / 4.36 |
+
+The LPIPS backbone is vgg16 (E-091). Maximum per-pixel change was 6, 12 and 20 grey levels for LOW, DEFAULT and HIGH on 512-scale PNG output (E-086).

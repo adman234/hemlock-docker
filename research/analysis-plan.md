@@ -10,24 +10,15 @@ Decision: recover logic from CPython bytecode (high-level artifacts, rule 3). Na
 | 4 Parameter tables and call graph | done | parameter-table.md, function-map.md |
 | 5 Data-flow and architecture write-up | done | architecture.md, data-flow.md |
 | 6 Independent implementation with injected models | done | `nightshade-reimplementation/` |
-| 7 Offline tests (stand-in encoder and LPIPS) | done, 55 pass, 1 skipped (CUDA) | `tests/` |
-| 8 Download assets and run the reference app | **blocked on approval** (see below) | experiments.csv |
-| 9 Reference vs reimplementation parity measurements | blocked on 8 | parity-report.md |
-| 10 Inspect unpickled assets without executing them (`pickletools`) to resolve U-003..U-005 | blocked on 8 | evidence.md |
+| 7 Offline tests (stand-in encoder and LPIPS) | done, 63 pass, 1 skipped (CUDA) | `tests/` |
+| 8 Download assets and run the reference app | done (user ran the downloads, all MD5s match) | experiments.csv, results/ |
+| 9 Reference vs reimplementation parity measurements | done | parity-report.md, measured-results.md |
+| 10 Inspect pickled assets (`pickletools`) to resolve U-001..U-006 | done | evidence.md E-090..E-095 |
 
-## Why step 8 is blocked
+## Remaining high-value experiments
 
-The reference app downloads several GB (sizes are not in the bytecode; the SD v1.5 unet alone is a multi-GB fp32 file) over plain HTTP from `mirror.cs.uchicago.edu` and Hugging Face on first launch
-(from general knowledge, not verified here, the `runwayml/stable-diffusion-v1-5` repository was taken down, so the app's own URL may 404, U-009),
-and it unpickles several downloaded files. Fetching those files and running the app with them is a download the mission did
-not explicitly authorize, so it needs a go-ahead. Proposed isolation: run the app in a Windows Sandbox or a throwaway user
-profile with the install directory read-only, `.nightshade` pointed at a scratch location, and a network allow-list limited to
-the two hosts above. Equivalent public SD v1.5 weights can be placed in `base/base` by hand to avoid the dead HF link.
-
-## Highest-value next experiments
-
-1. Run the reference at LOW/DEFAULT/HIGH x render quality 0 on a fixed 512x512 and a 768x512 image; record outputs, runtimes, VRAM.
-2. Same input twice: quantify run-to-run variability (expected: SD sampling noise only, since torch is unseeded and crops are reseeded).
-3. Inspect `lpips_fn.p` with `pickletools.dis` (no unpickling) to identify the backbone (U-005).
-4. Inspect decrypted `full_asset3.p` structure with `pickletools` to learn the pool size and embedding model (U-001, U-004).
-5. Compare reimplementation output with the reference on the same target image (inject the reference's target image) to isolate the optimizer from SD noise.
+1. Measure whether the protection holds up (fine-tune a small model on shaded vs unshaded sets). This is the main unanswered question (U-013).
+2. Compare the Hugging Face BLIP/CLIP checkpoints against the originals numerically (needs those downloads).
+3. Isolate the VRAM difference (U-012).
+4. Capture the original's runtime network behaviour (U-011).
+5. Review licences and terms (U-010).

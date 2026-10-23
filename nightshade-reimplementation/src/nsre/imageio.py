@@ -1,4 +1,4 @@
-"""Image I/O and preprocessing.
+﻿"""Image I/O and preprocessing.
 
 Mirrors utils.load_img / reduce_quality / contain_image / img2tensor / tensor2img and
 opt.Optimizer.save_image from Nightshade 1.1 (evidence E-030..E-037). Independently written.
@@ -47,7 +47,11 @@ def load_img(path: str) -> Optional[Image.Image]:
         return None
     try:
         exif = img._getexif()  # noqa: SLF001 - same private API the original uses
-    except Exception:
+    except OSError:
+        return None  # original: OSError (e.g. truncated PNG) -> skip the image
+    except AttributeError:
+        # Formats without _getexif (GIF, ...) crash the original with AttributeError even though
+        # its file dialog offers *.gif (E-080). We deliberately accept them instead.
         exif = None
     if exif:
         orientation_key = next((k for k, v in ExifTags.TAGS.items() if v == "Orientation"), None)
@@ -85,7 +89,8 @@ def shrink_shortside(img: Image.Image, size: int = PROCESS_SIZE) -> Image.Image:
 
 def img2tensor(img: Image.Image, device: str | torch.device = "cpu") -> torch.Tensor:
     """PIL RGB -> [1,3,H,W] float32 in [-1,1] using x/127.5 - 1."""
-    arr = np.array(img).astype(np.float32) / 127.5 - 1.0
+    # divide in float64, then cast: bit-identical to the original (float32 division differs by 1 ulp)
+    arr = (np.array(img) / 127.5 - 1.0).astype(np.float32)
     arr = np.transpose(arr, (2, 0, 1))
     return torch.tensor(arr).unsqueeze(0).to(device)
 
@@ -111,12 +116,20 @@ def output_name(og_path: str, level: str, tag: str = "V1", is_target: bool = Fal
     return name if ext is None else name + "." + ext
 
 
-def save_image(img: Image.Image, og_path: str, out_dir: str, level: str, exif=None) -> str:
-    """PNG when the original path ends in '.png' (case-sensitive, like the original), else JPEG q=100."""
+def save_image(img: Image.Image, og_path: str, out_dir: str, level: str, exif=None,
+               reset_exif_orientation: bool = False) -> str:
+    """PNG when the original path ends in '.png' (case-sensitive, like the original), else JPEG q=100.
+
+    The original keeps the source EXIF verbatim even though load_img already rotated the pixels, so an
+    Orientation tag of 3/6/8 makes viewers rotate the result a second time (E-081). With
+    reset_exif_orientation=True the tag is set to 1; the default keeps parity with the original.
+    """
     out = os.path.join(out_dir, output_name(og_path, level))
     fmt = "PNG" if og_path.endswith(".png") else "JPEG"
     kwargs = {"quality": 100}
     if exif is not None:
+        if reset_exif_orientation and 0x0112 in exif:
+            exif[0x0112] = 1
         kwargs["exif"] = exif
     img.save(out, format=fmt, **kwargs)
     return out
@@ -133,3 +146,4 @@ def add_perturbation_full_size(full_raw: Image.Image, source_t: torch.Tensor, pe
     up_adv = np.array(tensor2img(perturbed_t).resize(og)).astype(np.float32)
     out = np.clip(np.array(full_raw).astype(np.float32) + (up_adv - up_src), 0, 255).astype(np.uint8)
     return Image.fromarray(out)
+

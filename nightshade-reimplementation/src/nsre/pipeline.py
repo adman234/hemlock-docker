@@ -48,7 +48,10 @@ def shade_image(
     _mask, masked_target = get_mask(src, tgt)
 
     rng = random.Random(seed)
-    res = core_optimize(src, masked_target, params, comps.encode_latent, comps.perceptual, rng=rng)
+    res = core_optimize(
+        src, masked_target, params, comps.encode_latent, comps.perceptual, rng=rng,
+        og_size=(full.size[1], full.size[0]),
+    )
     final = imageio.add_perturbation_full_size(full, src, res.adv)
     os.makedirs(out_dir, exist_ok=True)
     out = imageio.save_image(final, path, out_dir, params.protection_level, exif=exif)

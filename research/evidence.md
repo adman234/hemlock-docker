@@ -97,3 +97,43 @@ disassembly produced by `research/tools/dis.py`. Raw disassembly is not committe
 ## Unknowns
 
 See `research/known-limitations.md` for the unknown register (U-001...).
+
+## Runtime and asset findings (added after the assets were downloaded and the original was run)
+
+Reference runs used the original `nightshade`, `opt` and `utils` modules unpacked from the shipped PYZ (`research/tools/mkpyc.py`),
+driven by `research/tools/ref_run.py` in a Python 3.11 environment pinned to the app's library versions, with
+`USERPROFILE` pointed at a scratch home holding the downloaded assets. Hardware: RTX 4070 SUPER 12 GB, driver 616.56.
+Raw per-run data: `research/results/*.jsonl`; derived tables: `research/measured-results.md`, `experiments.csv`.
+Class **R** = observed at run time.
+
+| ID | Class | Finding | Evidence |
+|---|---|---|---|
+| E-080 | R | GIF input crashes the original with `AttributeError('_getexif')` in `load_img` although the file dialog offers `*.gif`. | X-FMT-6, stage_parity |
+| E-081 | R | The original writes the already-rotated pixels but keeps the source EXIF verbatim, so an Orientation tag of 6 survives and viewers rotate the output again. | X-FMT-5 (both implementations) |
+| E-082 | R | When no input file survives the filters (unreadable, or skipped by name) `run_protection_prod` ends with `UnboundLocalError: out_file_name`. | X-BAD-* |
+| E-083 | R | Skip filter confirmed: `a-nightshade-intensity.png` is skipped, `a-protected-intensity-LOW-V1.png` is processed again and gets a doubled suffix. | X-BAD-a-* (E-024) |
+| E-084 | R | `load_img` returns `None` for a truncated PNG (the `OSError` raised by `_getexif`), so it is skipped silently. | stage_parity |
+| E-085 | R | render level -1 raises `KeyError('eot')` even for a square image (the key is read before the square override). Confirms and strengthens E-034. | smoke run |
+| E-086 | R | Measured limits: perturbation max error 12 levels at DEFAULT, 6 at LOW, 20 at HIGH on 512-scale content, up to 16 or 17 on larger images and 20 to 35 on JPEG output (codec noise). Predicted about 11.6, 5.8, 19.9. | X-INT, X-DIM, X-FMT |
+| E-087 | R | Timing on the 4070 SUPER: about 26 s for rq 0, 33 s rq 1, 56 s rq 2, 92 s rq 3 at 512x512 DEFAULT; HIGH rq 0 about 59 s. Peak VRAM 7.4 to 8.1 GB (the app keeps its models resident because the card has more than 10000 MB). On CPU (fp32) rq 0 at 512x512 took 641 s. These are far below the GUI's "5 to 20 min" and "30 to 180 min" labels. | ref_runs, dev_runs |
+| E-088 | R | Output container: `.png` input gives PNG; `.jpg` gives JPEG; `.PNG` and `.gif` get JPEG data inside a file with that extension. RGBA, L and P PNG inputs all give RGB PNG (alpha dropped). | X-FMT |
+| E-089 | R | Run-to-run variability of the original is large: five identical runs have perturbation cosine similarity of about 0.096 and mean absolute output difference of about 3.3 levels. The perturbation is dominated by the random SD target and crop offsets. | X-REP |
+
+### Assets (asset files inspected with `pickletools`, then loaded after the safe-global check)
+
+| ID | Class | Finding |
+|---|---|---|
+| E-090 | O | All ten downloads still resolve (the Hugging Face URLs redirect to a successor repository) and match the app's MD5s. The UChicago mirror returns HTTP 503 under parallel connections. |
+| E-091 | O | `lpips_fn.p` is `lpips.lpips.LPIPS` with a **vgg16** backbone, version 0.1, `pnet_rand=False`, `lpips=True`, fp32 weights embedded in the pickle (resolves U-005). |
+| E-092 | O | `clip_model.p` is OpenAI CLIP **ViT-B/32** (patch 32, width 768, 12 layers, 512-d embeddings, context 77), so `openai/clip-vit-base-patch32` is the right architecture (resolves U-004; weight identity not verified). |
+| E-093 | O | `blip_model.pt` is `BlipForConditionalGeneration` whose config names `Salesforce/blip-image-captioning-base` (12+12 layers, hidden 768, image size 384); `blip_preprocessor2.pt` is a `BlipProcessor` (resolves U-003). |
+| E-094 | O | `full_asset3.p` decrypts (Fernet, key from E-011) to a pickle that references only numpy array types. Contents: 178 `target_concepts`, a 178x512 float16 embedding matrix (unnormalised, norm about 10.5, so CLIP ViT-B/32 text features), and a 393-entry `precompute_mapping` dict. The word lists are vendor data and are not reproduced in this repository (resolves U-001 structurally). |
+| E-095 | O | `base.zip` holds only SD v1.5 configs: `model_index.json`, tokenizer, scheduler, feature_extractor and unet/vae/text_encoder `config.json` (resolves U-006). The three weight files come from the Hugging Face URLs. |
+
+### Parity measurements (see `research/parity-report.md`)
+
+| ID | Class | Finding |
+|---|---|---|
+| E-100 | R | Deterministic stages (parameters, `load_img`, `img2tensor`, `tensor2img`, `contain_image`, shrink, `add_perturbation_full_size`, `get_mask`, `save_image`) match the original on 115 of 115 checks over the whole corpus (114 identical plus one documented deviation: GIF). |
+| E-101 | R | `core_optimize` of the original and of nsre given the same source, target tensor, VAE, LPIPS and RNG state give bit-identical results (cosine 1.0, max difference 0.0) in 4 of 5 cases, including non-square crops and eot of 1, 2 and 3. The fifth (2000x1500, HIGH, 300 steps) differs with cosine 0.642, and the original differs from its own rerun by the same amount (0.6417): CUDA nondeterminism, not an implementation difference. |
+| E-102 | R | Concept and target selection rules match: 13 of 13 concept detections, 20 of 20 similarity-ranked targets (ranks 4 to 9, seed 678121), 60 of 60 mapped targets. |

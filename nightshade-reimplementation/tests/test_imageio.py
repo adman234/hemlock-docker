@@ -102,3 +102,15 @@ def test_add_perturbation_preserves_size_and_clips():
     assert out.size == (800, 600)
     arr = np.array(out)
     assert arr.dtype == np.uint8 and arr[..., 0].max() == 255  # clipped at the top
+
+
+def test_reset_exif_orientation_option(tmp_path):
+    img = Image.new("RGB", (16, 16), (10, 20, 30))
+    ex = Image.Exif()
+    ex[0x0112] = 6
+    kept = imageio.save_image(img, "a.jpg", str(tmp_path), "LOW", exif=ex)
+    assert Image.open(kept).getexif().get(0x0112) == 6  # parity with the original (double rotation quirk)
+    ex2 = Image.Exif()
+    ex2[0x0112] = 6
+    fixed = imageio.save_image(img, "b.jpg", str(tmp_path), "LOW", exif=ex2, reset_exif_orientation=True)
+    assert Image.open(fixed).getexif().get(0x0112) == 1

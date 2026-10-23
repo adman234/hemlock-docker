@@ -80,6 +80,7 @@ def core_optimize(
     perceptual: PerceptualFn,
     rng: Optional[random.Random] = None,
     progress: Optional[Callable[[float], None]] = None,
+    og_size: Optional[tuple] = None,
 ) -> OptimizeResult:
     """Minimise ||E(resize(clamp(src+delta))) - E(target)||_2 (latent L2) plus an LPIPS hinge
     penalty, with raw-gradient steps and a +-1.3*max_change clamp on delta.
@@ -91,7 +92,9 @@ def core_optimize(
     r_range, long_width, eot_override = crop_geometry(height, width)
     eot = 1 if eot_override else params.eot
 
-    resize_large = T.Resize((height, width))  # identity for this tensor size; kept for fidelity
+    # The original resizes adv to the FULL image size (height, width) and back to a 512 short side
+    # every step (E-052), so downscaling loss is part of the objective. og_size=(H0, W0).
+    resize_large = T.Resize(tuple(og_size) if og_size else (height, width))
     resize_proc = T.Resize(PROCESS_SIZE)
     modifier = torch.clone(source) * 0.0
     max_change = params.max_change

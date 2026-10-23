@@ -1,4 +1,4 @@
-"""Command line interface. Flag names follow the original nightshade.main (-d, -od, -m, -rq, -t)."""
+﻿"""Command line interface. Flag names follow the original nightshade.main (-d, -od, -m, -rq, -t)."""
 from __future__ import annotations
 
 import argparse
@@ -22,7 +22,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-t", "--target", default=None, help="force target concept (skips target selection)")
     p.add_argument("--concept", default=None, help="override detected concept (single image)")
     p.add_argument("--concepts-file", default=None, help="newline-separated target concept pool")
+    p.add_argument("--mapping-file", default=None, help="optional JSON concept->target overrides (like the original precompute_mapping)")
     p.add_argument("--sd-model", default=None, help="SD v1.5 diffusers id or local path")
+    p.add_argument("--lpips-pickle", default=None, help="local lpips_fn.p for parity experiments (trusted file)")
     p.add_argument("--device", default=None, help="cpu|cuda|mps (default: auto)")
     p.add_argument("--seed", type=int, default=None, help="optional seed for crops/SD sampling")
     p.add_argument("--dry-run", action="store_true", help="validate inputs and print parameters only")
@@ -63,3 +65,4 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

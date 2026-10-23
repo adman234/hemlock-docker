@@ -1,0 +1,24 @@
+# Torch is installed separately in the Dockerfile from the cu128 index (Blackwell cards need it).
+# Library versions match the ones inside the Nightshade 1.1 build that was studied (research/evidence.md E-006) where
+# they affect numerics: diffusers 0.14.0, transformers 4.29.0, tokenizers 0.13.3, huggingface_hub 0.19.4, Pillow 9.3.0.
+numpy==1.26.4
+Pillow==9.3.0
+diffusers==0.14.0
+transformers==4.29.0
+tokenizers==0.13.3
+huggingface_hub==0.19.4
+safetensors==0.4.1
+lpips==0.1.4
+nltk==3.8.1
+einops
+ftfy
+regex
+scipy
+tqdm
+gradio==4.44.1
+pydantic==2.10.6
+pyarrow==17.0.0
+pandas<2.3
+fastapi==0.112.2
+starlette==0.38.6
+accelerate==0.25.0

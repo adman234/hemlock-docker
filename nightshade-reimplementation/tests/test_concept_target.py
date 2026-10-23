@@ -31,6 +31,32 @@ def test_pick_target_rank_window_and_determinism():
     assert len(picks) == 1 and picks <= expected
 
 
+def test_pick_target_mapping_wins_over_similarity():
+    pool = [f"c{i}" for i in range(30)]
+    sim = np.arange(30, dtype=float)
+    assert concept.pick_target("cat", pool, sim, mapping={"cat": "paul"}) == "paul"
+    # a concept missing from the mapping falls back to the similarity window
+    assert concept.pick_target("dog", pool, sim, mapping={"cat": "paul"}) in {f"c{29 - r}" for r in range(4, 10)}
+
+
+def test_pick_target_reseeds_global_rng_only_on_similarity_path():
+    import random
+
+    pool = [f"c{i}" for i in range(30)]
+    sim = np.arange(30, dtype=float)
+    random.seed(5)
+    concept.pick_target("cat", pool, sim, mapping={"cat": "paul"})
+    after_mapped = random.random()
+    random.seed(5)
+    assert after_mapped == random.random()  # mapped path leaves the global RNG alone
+    concept.pick_target("dog", pool, sim)
+    a = random.random()
+    concept.pick_target("dog", pool, sim)
+    random.seed(678121)
+    random.choice(range(6))
+    assert a == random.random()  # similarity path leaves the RNG in the seeded state
+
+
 def test_pad_and_crop_roundtrip():
     img = Image.fromarray(np.random.default_rng(0).integers(0, 255, (200, 300, 3), dtype=np.uint8))
     canvas = target.pad_to_canvas(img)

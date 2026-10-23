@@ -1,4 +1,4 @@
-"""Concept (poison tag) detection and target-concept selection.
+﻿"""Concept (poison tag) detection and target-concept selection.
 
 Mirrors utils.ImageAnalyzer.get_current_concept / concept_candidate_filter / get_target_style
 (evidence E-050..E-056). The original target-concept list and its embeddings live in an
@@ -47,6 +47,7 @@ def pick_target(
     target_concepts: Sequence[str],
     similarity: np.ndarray,
     seed: int = CONCEPT_SEED,
+    mapping: Optional[dict] = None,
 ) -> str:
     """similarity: cosine similarity of `concept` to each entry of target_concepts.
 
@@ -54,8 +55,11 @@ def pick_target(
     (random.seed(678121) then random.choice) so the choice is deterministic per concept.
     NOTE: reseeding the global RNG also fixes the subsequent crop sequence in the original.
     """
+    if mapping and concept in mapping:  # original: precompute_mapping wins (no reseed on this path)
+        return mapping[concept]
     lo, hi = TARGET_RANK_SLICE
     order = np.asarray(similarity).reshape(-1).argsort()[::-1][lo:hi]
     cands = [target_concepts[i] for i in order]
     random.seed(seed)
     return random.choice(cands)
+

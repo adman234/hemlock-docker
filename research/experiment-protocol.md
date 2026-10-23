@@ -1,14 +1,16 @@
 # Experiment protocol (Phase 3)
 
-Status: **designed, not executed.** The reference app needs several GB of assets that have not been downloaded (E-007) and
-that load unpickled objects (E-012). Execution waits for approval (see analysis-plan.md). `experiments.csv` lists the planned runs;
-`reference-observations.md` is the place for measured results.
+Status: **executed** (see `parity-report.md`). Deviations from this protocol: the reference was driven through its unpacked
+Python modules (`research/tools/ref_run.py`) rather than the GUI, because the GUI cannot take a forced target or tag from automation;
+the module code is identical to what the GUI calls. Corpus images are synthetic scenes (`research/tools/make_corpus.py`); no owner photographs
+were used. X-TGT-3 (auto target) used forced concept `cat`. X-RQ-4 and the CPU runs used 512x512 only.
 
 ## Setup
 
-- Reference: unmodified `Nightshade.exe` 1.1, run from a copy of the install in a throwaway Windows user profile or Windows Sandbox. `%USERPROFILE%\.nightshade` is the only writable location. CLI mode (`python -m nightshade`-style invocation is not available in a frozen build), so runs use the GUI through `capture_native_ui_scenario`-style automation, or a source-equivalent harness that imports the extracted `nightshade` module with the same bundled libraries.
-- Reimplementation: `nsre` with the public substitutes in `models.py`.
-- Corpus: images the owner is authorized to use. Fixtures are generated deterministically by `tests/conftest.py::make_image` (seeded noise and gradients) plus 3 to 5 owner-supplied photographs. No third-party artwork.
+- Reference: the original Nightshade 1.1 modules (
+ightshade, opt, utils) unpacked from the shipped PYZ, driven by esearch/tools/ref_run.py in a Python 3.11 environment pinned to the app's library versions, USERPROFILE pointed at a scratch home with the downloaded assets (the install itself is untouched).
+- Reimplementation: `nsre` with the same assets (`research/tools/reimpl_run.py`).
+- Corpus: synthetic scenes generated deterministically by `research/tools/make_corpus.py`. No third-party artwork.
 - Record for every run: input SHA-256, app version, intensity, rq, target/concept override, device, GPU name and driver, torch version, wall time, peak VRAM (`nvidia-smi` sampling), output SHA-256, output size/format/mode, EXIF presence, stderr.
 - Hardware available: RTX 4070 SUPER 12 GB (> 10000 MB, so the original takes the `extra_large_gpu` path), driver 616.56.
 

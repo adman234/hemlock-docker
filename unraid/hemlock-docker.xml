@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>hemlock-docker</Name>
+  <Repository>ghcr.io/adman234/hemlock-docker:latest</Repository>
+  <Registry>https://github.com/adman234/hemlock-docker/pkgs/container/hemlock-docker</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/adman234/hemlock-docker/issues</Support>
+  <Project>https://github.com/adman234/hemlock-docker</Project>
+  <Overview>Hemlock in your browser: an independent, open-source take on the Nightshade method. Artists upload one or many images, the server adds faint targeted changes that make AI models that scrape the image learn the wrong thing, and they download the protected images (or a zip) together with the ALT-text tags to post with them. Compare before and after by pressing and holding the result. Runs on an NVIDIA GPU (install the Nvidia Driver plugin, driver 570 or newer, and keep --runtime=nvidia in Extra Parameters). About 20 seconds per image on a mid-range card at the default quality; on the CPU it is far slower. Stable Diffusion 1.5 (about 2.5 GB) and two small tagging models download into the data folder on first start. Uploaded images are deleted after an hour. There is no login unless you set a password below, so keep it on your LAN or put it behind a reverse proxy. A deterrent, not a guarantee, and not affiliated with the Nightshade team.</Overview>
+  <Category>Tools: Productivity:</Category>
+  <WebUI>http://[IP]:[PORT:7860]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/adman234/hemlock-docker/main/unraid/hemlock-docker.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/adman234/hemlock-docker/main/hemlock_logo.png</Icon>
+  <ExtraParams>--runtime=nvidia</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>Install the Nvidia Driver plugin. No GPU? Remove --runtime=nvidia from Extra Parameters and it runs on the CPU, very slowly.</Requires>
+  <Config Name="WebUI port" Target="7860" Default="7861" Mode="tcp" Description="Web interface. 7861 so it can run next to mist-docker on 7860." Type="Port" Display="always" Required="true" Mask="false">7861</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/hemlock-docker" Mode="rw" Description="Model cache (about 4 GB), optional concepts.txt / mapping.json, and temporary job files." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/hemlock-docker</Config>
+  <Config Name="NVIDIA_VISIBLE_DEVICES" Target="NVIDIA_VISIBLE_DEVICES" Default="all" Mode="" Description="Which GPU to use: all, or a GPU UUID from the Nvidia Driver plugin page." Type="Variable" Display="always" Required="false" Mask="false">all</Config>
+  <Config Name="Password" Target="HEMLOCK_PASSWORD" Default="" Mode="" Description="Optional. When set, the page asks for it. Leave empty for no login." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Username" Target="HEMLOCK_USERNAME" Default="" Mode="" Description="Optional username to go with the password. Empty means the username is hemlock." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Max images per run" Target="HEMLOCK_MAX_FILES" Default="20" Mode="" Description="How many images one run may contain. Each run holds the GPU, so keep this modest on shared servers." Type="Variable" Display="advanced" Required="false" Mask="false">20</Config>
+  <Config Name="Queue length" Target="HEMLOCK_QUEUE_MAX" Default="20" Mode="" Description="How many runs may wait their turn before new ones are turned away." Type="Variable" Display="advanced" Required="false" Mask="false">20</Config>
+  <Config Name="Delete uploads after (minutes)" Target="HEMLOCK_JOB_TTL_MINUTES" Default="60" Mode="" Description="How long uploaded and finished images stay on the server before they are removed." Type="Variable" Display="advanced" Required="false" Mask="false">60</Config>
+  <Config Name="Automatic tag detection" Target="HEMLOCK_CONCEPT_MODELS" Default="1" Mode="" Description="1 downloads two small models that name each image and pick a target concept. 0 skips them (type the tag yourself, targets are picked from the word list)." Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="NVIDIA_DRIVER_CAPABILITIES" Target="NVIDIA_DRIVER_CAPABILITIES" Default="compute,utility" Mode="" Description="Leave as compute,utility." Type="Variable" Display="advanced" Required="false" Mask="false">compute,utility</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID that owns created files (99 = nobody)." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID that owns created files (100 = users)." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="UMASK" Target="UMASK" Default="022" Mode="" Description="File creation mask." Type="Variable" Display="advanced" Required="false" Mask="false">022</Config>
+</Container>

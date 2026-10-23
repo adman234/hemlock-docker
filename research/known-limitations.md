@@ -1,33 +1,36 @@
-# Known limitations and unknowns
+﻿# Known limitations and unknowns
 
 ## Limitations of the reimplementation
 
 | ID | Limitation | Class |
 |---|---|---|
-| L-001 | Target concept pool is a caller-supplied list. The original pool, its embeddings and `precompute_mapping` are in the encrypted asset `full_asset3.p`, not reproduced. Target choice therefore differs from the original even though the selection rule (ranks 4..9, seed 678121) is the same. | approximation |
-| L-002 | BLIP model: `Salesforce/blip-image-captioning-large` is a guess for `blip_model.pt`. | approximation |
-| L-003 | CLIP model: `openai/clip-vit-base-patch32` is a guess for `clip_model.p`. | approximation |
-| L-004 | `runner.py` omits the CLIP zero-shot re-ranking when several nouns remain (it takes the first). `concept.pick_concept` implements it and is tested; wiring needs the CLIP image-text path. | gap |
-| L-005 | LPIPS backbone default is `alex`; original unknown (U-005). | approximation |
-| L-006 | opt_setting `'0'` defaults `eot` to 1 instead of failing (E-034). | deliberate deviation |
-| L-007 | The skip filter in `cli.py` uses the real output marker `-protected-intensity`, not the original's non-matching `-nightshade-intensity` (E-024). | deliberate deviation |
-| L-008 | No GUI, no download manager, no update check, no MPS batch limit. | out of scope |
-| L-009 | GPU consistency test exists but was not run (no CUDA in the test environment); no end-to-end run with real weights has been done. | not verified |
-| L-010 | Stand-in tests use a tiny conv encoder, not the SD VAE; they prove algorithm structure, not attack effectiveness. | not verified |
-| L-011 | Poisoning effectiveness against any model is not evaluated. | out of scope |
+| L-001 | The target concept pool and the precomputed concept mapping are vendor data (E-094) and are not reproduced. nsre takes a caller-supplied pool (`--concepts-file`) and optional mapping (`--mapping-file`); the web app ships its own word list. The selection rule is identical (13/13, 20/20, 60/60 parity), the candidates are not, so targets differ for the same tag. | approximation |
+| L-002 | BLIP and CLIP weights come from Hugging Face (`Salesforce/blip-image-captioning-base`, `openai/clip-vit-base-patch32`). Architectures match the originals (E-092, E-093); weight identity was not compared. | unverified |
+| L-003 | LPIPS: nsre builds `lpips.LPIPS(net='vgg')` (the same architecture as the original, E-091); ImageNet backbone weights come from torchvision's download. Parity runs used the original's `lpips_fn.p` locally. | approximation |
+| L-004 | Concept re-ranking with CLIP when several nouns remain is implemented in `Engine.detect_concept` and its rule is parity tested, but the Hugging Face BLIP/CLIP path has not been executed end to end here (no download of those models). | unverified |
+| L-005 | opt_setting `'0'` (render level -1) defaults `eot` to 1 instead of raising `KeyError` (E-034, E-085). | deliberate deviation |
+| L-006 | The CLI and web app skip names containing `-protected-intensity`, the marker the output files really carry, instead of the original's non-matching `-nightshade-intensity` (E-024, E-083). | deliberate deviation |
+| L-007 | GIF and other formats without `_getexif` are accepted (E-080). | deliberate deviation |
+| L-008 | The web app resets the EXIF Orientation tag to 1 on output (E-081); the library default keeps parity with the original. | deliberate deviation |
+| L-009 | No Windows/macOS GUI, download manager, update check or MPS batch limit. The web app replaces the GUI. | out of scope |
+| L-010 | Poisoning effectiveness against any model is not evaluated, for the original or the reimplementation. | out of scope |
+| L-011 | Output is not pixel-reproducible across runs unless `--seed` is used, matching the original's nondeterminism in spirit (the original has no seed at all). | by design |
+| L-012 | The Docker image has not been built on the development machine (no Docker); it is built and smoke-tested by GitHub Actions. CUDA vs CPU unit test is skipped without a GPU in the test environment. | not verified locally |
 
 ## Unknown register
 
-| ID | Question | Why it matters | Next step |
-|---|---|---|---|
-| U-001 | Size and content of the target concept pool; embedding model used for `target_concepts_embs`. | determines which targets are chosen | decrypt locally and inspect with `pickletools` (no unpickling) |
-| U-002 | Resolved by static reading: the unsupported-shape branch raises `Exception` with no message (E-050). Reimplementation raises `ValueError` with a descriptive message. | error-handling parity | none |
-| U-003 | BLIP variant. | caption/concept parity | `pickletools` on `blip_model.pt`, check config |
-| U-004 | CLIP variant. | ranking parity | `pickletools` on `clip_model.p` |
-| U-005 | LPIPS backbone and whether it is fp16-safe. | penalty magnitude | `pickletools` on `lpips_fn.p` |
-| U-006 | Whether `base.zip` contains anything beyond SD config files. | asset completeness | list zip contents after approved download |
-| U-007 | Real run-to-run variance and VRAM/time per setting. | parity metrics | experiments X-REP, X-RQ |
-| U-008 | Which of the two GUI time-label sets applies to GPU versus CPU. | documentation only | read the GUI branch that picks the label set |
-| U-009 | Whether the shipped download URLs still resolve (the SD repo URL points at `runwayml/stable-diffusion-v1-5`). | first-run reproducibility | approved dry download of HEAD requests only |
-| U-010 | Terms of use of Nightshade and licenses of the downloaded assets with respect to reimplementation. | legal | read the download page and EULA; no vendor code or weights are redistributed here |
-| U-011 | Whether `check_glaze_update` and `app` contact other hosts at runtime. | privacy | process capture of the app with network disabled |
+| ID | Question | Status |
+|---|---|---|
+| U-001 | Size and content of the target pool, embedding model. | **resolved structurally**: 178 words, 178x512 float16 CLIP ViT-B/32 text features, 393 mapped concepts (E-094). Content intentionally not reproduced. |
+| U-002 | Message of the bare exception for unsupported shapes. | **resolved**: no message (E-050). |
+| U-003 | BLIP variant. | **resolved**: base (E-093). |
+| U-004 | CLIP variant. | **resolved**: ViT-B/32 (E-092). |
+| U-005 | LPIPS backbone. | **resolved**: vgg16 (E-091). |
+| U-006 | Contents of `base.zip`. | **resolved**: SD configs only (E-095). |
+| U-007 | Run-to-run variance, VRAM and time per setting. | **resolved**: measured (E-086..E-089). |
+| U-008 | Which GUI time-label set is GPU vs CPU. | open, low value: both are far above measured times (E-087). |
+| U-009 | Whether download URLs still resolve. | **resolved**: yes, Hugging Face ones redirect to a successor repo; the UChicago mirror returns 503 under parallel load (E-090). |
+| U-010 | Terms of use of Nightshade and the assets with respect to reimplementation. | open: not reviewed. No vendor code, weights, pool or mapping are redistributed here. |
+| U-011 | Whether `check_glaze_update` and `app` contact other hosts at runtime. | open: only the update-check URL and the downloader hosts are present in the bytecode; no runtime capture was done. |
+| U-012 | Why the original uses about 3 GB more VRAM than nsre on the same card. | open: hypothesis only. |
+| U-013 | Whether protection survives training, scaling or JPEG on any real model. | open and out of scope. |

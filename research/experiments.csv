@@ -1,34 +1,58 @@
-id,factor,input,width,height,format,intensity,rq,target,device,seed,reference_status,reimpl_status,notes
-X-DIM-1,size,gen:noise512,512,512,PNG,DEFAULT,0,forced,cuda,,planned,planned,square path; eot forced to 1
-X-DIM-2,size,gen:noise768x512,768,512,PNG,DEFAULT,0,forced,cuda,,planned,planned,long_width crop
-X-DIM-3,size,gen:noise512x768,512,768,PNG,DEFAULT,0,forced,cuda,,planned,planned,tall crop
-X-DIM-4,size,gen:noise1024,1024,1024,PNG,DEFAULT,0,forced,cuda,,planned,planned,downscale to 512 then lift
-X-DIM-5,size,gen:noise4000x3000,4000,3000,PNG,DEFAULT,0,forced,cuda,,planned,planned,large; below 5120 cap
-X-DIM-6,size,gen:noise5200x300,5200,300,PNG,DEFAULT,0,forced,cuda,,planned,planned,above cap and extreme aspect
-X-FMT-1,format,gen:rgba,768,512,PNG-RGBA,DEFAULT,0,forced,cuda,,planned,planned,alpha handling
-X-FMT-2,format,gen:gray,768,512,PNG-L,DEFAULT,0,forced,cuda,,planned,planned,mode conversion
-X-FMT-3,format,gen:palette,768,512,PNG-P,DEFAULT,0,forced,cuda,,planned,planned,mode conversion
-X-FMT-4,format,gen:jpeg,768,512,JPEG,DEFAULT,0,forced,cuda,,planned,planned,jpeg output q100
-X-FMT-5,format,gen:jpeg_exif6,768,512,JPEG,DEFAULT,0,forced,cuda,,planned,planned,EXIF orientation 6 swap
-X-FMT-6,format,gen:gif,768,512,GIF,DEFAULT,0,forced,cuda,,planned,planned,gif listed in dialog filter; output becomes JPEG
-X-FMT-7,format,gen:upper_png,768,512,PNG,DEFAULT,0,forced,cuda,,planned,planned,.PNG extension saved as JPEG data?
-X-INT-1,intensity,gen:noise768x512,768,512,PNG,LOW,0,forced,cuda,,planned,planned,
-X-INT-2,intensity,gen:noise768x512,768,512,PNG,DEFAULT,0,forced,cuda,,planned,planned,
-X-INT-3,intensity,gen:noise768x512,768,512,PNG,HIGH,0,forced,cuda,,planned,planned,HIGH adds 200 steps
-X-RQ-1,render quality,gen:noise512,512,512,PNG,DEFAULT,0,forced,cuda,,planned,planned,
-X-RQ-2,render quality,gen:noise512,512,512,PNG,DEFAULT,1,forced,cuda,,planned,planned,
-X-RQ-3,render quality,gen:noise512,512,512,PNG,DEFAULT,2,forced,cuda,,planned,planned,
-X-RQ-4,render quality,gen:noise512,512,512,PNG,DEFAULT,3,forced,cuda,,planned,planned,time boxed
-X-TGT-1,target,gen:noise768x512,768,512,PNG,DEFAULT,0,dog,cuda,,planned,planned,
-X-TGT-2,target,gen:noise768x512,768,512,PNG,DEFAULT,0,car,cuda,,planned,planned,
-X-TGT-3,target,gen:noise768x512,768,512,PNG,DEFAULT,0,auto-pool,cuda,,planned,planned,needs pool; reference pool is encrypted
-X-DEV-1,device,gen:noise512,512,512,PNG,DEFAULT,0,forced,cpu,,planned,planned,fp32 path
-X-REP-1..5,repeat,gen:noise768x512,768,512,PNG,DEFAULT,0,forced,cuda,,planned,planned,5 identical runs; quantify variability
-X-BAD-1,invalid,missing path,,,,DEFAULT,0,forced,cuda,,planned,planned,expect skip
-X-BAD-2,invalid,directory,,,,DEFAULT,0,forced,cuda,,planned,planned,expect skip
-X-BAD-3,invalid,zero-byte file,,,,DEFAULT,0,forced,cuda,,planned,planned,
-X-BAD-4,invalid,truncated png,,,,DEFAULT,0,forced,cuda,,planned,planned,
-X-BAD-5,invalid,text named .png,,,,DEFAULT,0,forced,cuda,,planned,planned,
-X-BAD-6,invalid,missing output dir,,,,DEFAULT,0,forced,cuda,,planned,planned,expect exception message
-X-SKIP-1,filename filter,a-nightshade-intensity.png,512,512,PNG,DEFAULT,0,forced,cuda,,planned,planned,expect skipped (E-024)
-X-SKIP-2,filename filter,a-protected-intensity-LOW-V1.png,512,512,PNG,DEFAULT,0,forced,cuda,,planned,planned,expect NOT skipped in reference (E-024)
+id,side,ok,input,mode,rq,target,out_name,out_format,out_size,out_mode,out_exif,max_abs,mae,psnr,frac_changed,run_s,peak_vram_mb,error
+D-CPU-REF,ref,True,sq512.png,1,0,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,2.5966,37.1535,0.9922,641.4,0,
+D-CPU-S,re,True,sq512.png,1,0,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,2.6789,36.9836,0.9934,611.1,0,
+D-GPU-S,re,True,sq512.png,1,0,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,2.7269,36.7672,0.9914,18.4,4204,
+S-SEED-1,re,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.5708,37.085,0.9819,19.3,4290,
+S-SEED-2,re,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.5708,37.085,0.9819,19.1,4283,
+X-BAD-a-nightshade-intensity.png,ref,False,,1,0,dog,,,,,,,,,,0,0,"UnboundLocalError(""cannot access local variable 'out_file_name' where it is not associated"
+X-BAD-a-protected-intensity-LOW-V1.png,ref,True,a-protected-intensity-LOW-V1.png,1,0,dog,a-protected-intensity-LOW-V1-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,2.6484,37.0827,0.9927,25.0,7382,
+X-BAD-bad_text.png,ref,False,,1,0,dog,,,,,,,,,,0,0,"UnboundLocalError(""cannot access local variable 'out_file_name' where it is not associated"
+X-BAD-bad_trunc.png,ref,False,,1,0,dog,,,,,,,,,,0,0,"UnboundLocalError(""cannot access local variable 'out_file_name' where it is not associated"
+X-BAD-bad_zero.png,ref,False,,1,0,dog,,,,,,,,,,0,0,"UnboundLocalError(""cannot access local variable 'out_file_name' where it is not associated"
+X-DIM-1,re,True,sq512.png,1,0,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,2.7177,36.8412,0.9934,18.6,4212,
+X-DIM-1,ref,True,sq512.png,1,0,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,2.872,36.4438,0.9939,27.3,7372,
+X-DIM-2,re,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.3889,37.6888,0.9795,17.5,4294,
+X-DIM-2,ref,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.6267,36.8902,0.9829,31.1,7420,
+X-DIM-3,re,True,tall512x768.png,1,0,dog,tall512x768-protected-intensity-DEFAULT-V1.png,PNG,512x768,RGB,False,12.0,2.5315,37.1517,0.9786,17.1,4294,
+X-DIM-3,ref,True,tall512x768.png,1,0,dog,tall512x768-protected-intensity-DEFAULT-V1.png,PNG,512x768,RGB,False,12.0,2.3494,37.7412,0.9779,30.9,7417,
+X-DIM-4,re,True,sq1024.png,1,0,dog,sq1024-protected-intensity-DEFAULT-V1.png,PNG,1024x1024,RGB,False,17.0,2.2329,38.2584,0.9903,19.0,4206,
+X-DIM-4,ref,True,sq1024.png,1,0,dog,sq1024-protected-intensity-DEFAULT-V1.png,PNG,1024x1024,RGB,False,16.0,2.4765,37.6919,0.9937,26.4,7383,
+X-DIM-5,re,True,big2000x1500.png,1,0,dog,big2000x1500-protected-intensity-DEFAULT-V1.png,PNG,2000x1500,RGB,False,16.0,1.8952,39.3446,0.9781,20.2,4252,
+X-DIM-5,ref,True,big2000x1500.png,1,0,dog,big2000x1500-protected-intensity-DEFAULT-V1.png,PNG,2000x1500,RGB,False,16.0,1.9604,39.2659,0.9829,29.4,7410,
+X-FMT-1,re,True,fmt_rgba.png,1,0,dog,fmt_rgba-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.402,37.4938,0.9742,19.4,4283,
+X-FMT-1,ref,True,fmt_rgba.png,1,0,dog,fmt_rgba-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.4179,37.6511,0.9834,27.9,7420,
+X-FMT-2,re,True,fmt_gray.png,1,0,dog,fmt_gray-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.6707,36.7956,0.9795,19.7,4283,
+X-FMT-2,ref,True,fmt_gray.png,1,0,dog,fmt_gray-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.4426,37.5427,0.9792,27.2,7434,
+X-FMT-3,re,True,fmt_palette.png,1,0,dog,fmt_palette-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.2755,37.9467,0.9762,18.9,4294,
+X-FMT-3,ref,True,fmt_palette.png,1,0,dog,fmt_palette-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.3279,37.7817,0.9749,26.4,7417,
+X-FMT-4,re,True,wide768.jpg,1,0,dog,wide768-protected-intensity-DEFAULT-V1.jpg,JPEG,768x512,RGB,False,20.0,2.864,36.4427,0.9528,19.2,4290,
+X-FMT-4,ref,True,wide768.jpg,1,0,dog,wide768-protected-intensity-DEFAULT-V1.jpg,JPEG,768x512,RGB,False,23.0,2.9274,36.2668,0.9526,25.9,7438,
+X-FMT-5,re,True,fmt_exif6.jpg,1,0,dog,fmt_exif6-protected-intensity-DEFAULT-V1.jpg,JPEG,768x512,RGB,True,20.0,2.9548,36.2391,0.9544,18.0,4277,
+X-FMT-5,ref,True,fmt_exif6.jpg,1,0,dog,fmt_exif6-protected-intensity-DEFAULT-V1.jpg,JPEG,768x512,RGB,True,20.0,2.7922,36.6135,0.945,26.5,7433,
+X-FMT-6,re,True,fmt_still.gif,1,0,dog,fmt_still-protected-intensity-DEFAULT-V1.gif,JPEG,768x512,RGB,False,57.0,3.4987,34.7281,0.9964,17.0,4277,
+X-FMT-6,ref,False,fmt_still.gif,1,0,dog,,,,,,,,,,0,0,AttributeError('_getexif')
+X-FMT-7,re,True,fmt_upper.PNG,1,0,dog,fmt_upper-protected-intensity-DEFAULT-V1.PNG,JPEG,768x512,RGB,False,35.0,3.6234,34.7994,0.9991,19.6,4281,
+X-FMT-7,ref,True,fmt_upper.PNG,1,0,dog,fmt_upper-protected-intensity-DEFAULT-V1.PNG,JPEG,768x512,RGB,False,32.0,3.519,35.0354,0.999,27.3,7420,
+X-INT-1,re,True,wide768.png,0,0,dog,wide768-protected-intensity-LOW-V1.png,PNG,768x512,RGB,False,6.0,1.0805,44.0727,0.8924,18.9,4294,
+X-INT-1,ref,True,wide768.png,0,0,dog,wide768-protected-intensity-LOW-V1.png,PNG,768x512,RGB,False,6.0,1.1014,44.011,0.9019,26.8,7434,
+X-INT-3,re,True,wide768.png,2,0,dog,wide768-protected-intensity-HIGH-V1.png,PNG,768x512,RGB,False,20.0,5.2373,31.177,0.998,52.6,4737,
+X-INT-3,ref,True,wide768.png,2,0,dog,wide768-protected-intensity-HIGH-V1.png,PNG,768x512,RGB,False,20.0,5.1417,31.3572,0.9985,58.8,7875,
+X-REP-1,re,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.4233,37.4264,0.9792,23.1,4291,
+X-REP-1,ref,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.4561,37.4392,0.9803,26.3,7434,
+X-REP-2,re,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.5209,37.2634,0.9826,23.3,4294,
+X-REP-2,ref,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.4282,37.5121,0.9792,26.9,7420,
+X-REP-3,re,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.4857,37.2489,0.9788,24.3,4294,
+X-REP-3,ref,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.3273,37.8141,0.9779,26.4,7420,
+X-REP-4,re,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.508,37.2888,0.9815,18.9,4283,
+X-REP-4,ref,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.3517,37.6139,0.9738,26.5,7417,
+X-REP-5,re,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.4059,37.5652,0.978,19.3,4281,
+X-REP-5,ref,True,wide768.png,1,0,dog,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.515,37.2042,0.9783,25.4,7420,
+X-RQ-2,re,True,sq512.png,1,1,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,2.797,36.5665,0.9923,24.4,4286,
+X-RQ-2,ref,True,sq512.png,1,1,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,2.7549,36.6874,0.9934,32.9,7471,
+X-RQ-3,re,True,sq512.png,1,2,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,3.3094,35.1361,0.9939,52.0,4514,
+X-RQ-3,ref,True,sq512.png,1,2,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,3.5217,34.814,0.9964,55.9,7753,
+X-RQ-4,re,True,sq512.png,1,3,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,4.3631,33.2012,0.9981,81.8,4810,
+X-RQ-4,ref,True,sq512.png,1,3,dog,sq512-protected-intensity-DEFAULT-V1.png,PNG,512x512,RGB,False,12.0,4.0865,33.6963,0.9985,92.0,8107,
+X-TGT-2,re,True,wide768.png,1,0,car,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.4961,37.1799,0.9799,19.5,4277,
+X-TGT-2,ref,True,wide768.png,1,0,car,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.5285,37.1574,0.981,26.9,7417,
+X-TGT-3,ref,True,wide768.png,1,0,-,wide768-protected-intensity-DEFAULT-V1.png,PNG,768x512,RGB,False,12.0,2.5252,37.2086,0.9817,27.1,7433,
