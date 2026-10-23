@@ -58,6 +58,11 @@ button.lg,button.primary{min-height:52px;font-size:1.05rem}
 .cmp[data-mode=hold] .stage.holding .img-o{opacity:1}
 .tag{position:absolute;left:8px;top:8px;padding:3px 10px;border-radius:999px;font-size:.78rem;color:#fff;background:#000a;pointer-events:none}
 .tag-o{opacity:0}
+.tap-hint{position:absolute;right:8px;top:8px;display:inline-flex;align-items:center;gap:.4em;padding:5px 12px;border-radius:999px;font-size:.82rem;font-weight:600;color:#fff;
+  background:#10b981;pointer-events:none;box-shadow:0 0 0 0 #10b981aa;animation:hmtap 1.8s ease-out infinite}
+@keyframes hmtap{0%{box-shadow:0 0 0 0 #10b981aa}70%{box-shadow:0 0 0 12px #10b98100}100%{box-shadow:0 0 0 0 #10b98100}}
+.cmp[data-mode=slide] .tap-hint,.cmp .stage.holding .tap-hint{display:none}
+@media (prefers-reduced-motion:reduce){.tap-hint{animation:none}}
 .cmp[data-mode=hold] .stage.holding .tag-o{opacity:1}.cmp[data-mode=hold] .stage.holding .tag-m{opacity:0}
 .range,.divider{display:none}
 .cmp[data-mode=slide] .img-o{opacity:1;clip-path:inset(0 calc(100% - var(--pos,50%)) 0 0)}
@@ -110,7 +115,11 @@ HEAD = """
   if (window.HM) return;
   var HM = window.HM = {};
   function closest(t, sel){ return t && t.closest ? t.closest(sel) : null; }
+  var tapped = false;
+  try{ tapped = !!localStorage.getItem('hm_tapped') }catch(x){}
+  function hideHints(){ document.querySelectorAll('.tap-hint').forEach(function(n){ n.remove() }) }
   document.addEventListener('pointerdown', function(ev){
+    if (closest(ev.target, '.stage')){ tapped = true; hideHints(); try{ localStorage.setItem('hm_tapped', '1') }catch(x){} }
     var st = closest(ev.target, '.stage'); if (st && closest(st, '.cmp').dataset.mode === 'hold'){ st.classList.add('holding'); try{ st.setPointerCapture(ev.pointerId) }catch(x){} }
     var fs = closest(ev.target, '.fs-stage'); if (fs && fs.dataset.mode === 'hold'){ fs.classList.add('holding') }
   });
@@ -180,7 +189,7 @@ HEAD = """
     var el = c.querySelector(sel(id));
     if (!el){ el = document.createElement('div'); el.className = 'hm-job'; el.dataset.id = id; c.appendChild(el); shown[id] = null;
       ids.slice().reverse().forEach(function(k){ var e2 = c.querySelector(sel(k)); if (e2) c.insertBefore(e2, c.firstChild) }) }
-    if (shown[id] !== h || !el.firstChild){ el.innerHTML = h; shown[id] = h }
+    if (shown[id] !== h || !el.firstChild){ el.innerHTML = h; shown[id] = h; if (tapped) hideHints() }
   }
   function button(){
     var b = document.getElementById('go'); if (!b) return;
@@ -300,6 +309,7 @@ def card(it: dict, clear: bool = False) -> str:
     <img class="img-m" src="file={e(it['mist'])}" alt="" draggable="false">
     <img class="img-o" src="file={e(it['orig'])}" alt="" draggable="false">
     <span class="tag tag-m">Protected</span><span class="tag tag-o">Original</span>
+    <span class="tap-hint" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 14a8 8 0 0 1-8 8"/><path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1"/><path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>Hold to compare</span>
     <input class="range" type="range" min="0" max="100" value="50" aria-label="Compare slider">
     <div class="divider"></div>
   </div>
