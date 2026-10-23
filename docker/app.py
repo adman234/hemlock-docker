@@ -747,9 +747,9 @@ def build():
             with gr.Column(scale=2, min_width=320):
                 with gr.Group(visible=DEF_METHOD == METHOD_H) as h_main:
                     h_strength = gr.Radio(list(H_STRENGTH), value=DEF_H_STRENGTH, label="Strength",
-                                          info="How much each pixel may change. Higher strength settings will also take longer to render.")
+                                          info="How much each pixel may change. Higher strength settings will be more distorted and also take longer.")
                     h_quality = gr.Radio(list(H_QUALITY), value=DEF_H_QUALITY, label="Render quality",
-                                         info=f"How long it optimizes. Fast takes about {fmt_est(h_sec('Fast'))} per image, Better about {fmt_est(h_sec('Better'))}, Thorough about {fmt_est(h_sec('Thorough'))}, Maximum about {fmt_est(h_sec('Maximum'))}.")
+                                         info=f"How long it optimizes. Fast takes about {fmt_est(h_sec('Fast'))} per image, Maximum about {fmt_est(h_sec('Maximum'))}.")
                 with gr.Group(visible=DEF_METHOD == METHOD_M) as m_main:
                     m_strength = gr.Radio(list(M_STRENGTH), value=DEF_M_STRENGTH, label="Strength",
                                           info="Stronger protects more, but the noise becomes easier to see.")
