@@ -137,3 +137,11 @@ Class **R** = observed at run time.
 | E-100 | R | Deterministic stages (parameters, `load_img`, `img2tensor`, `tensor2img`, `contain_image`, shrink, `add_perturbation_full_size`, `get_mask`, `save_image`) match the original on 115 of 115 checks over the whole corpus (114 identical plus one documented deviation: GIF). |
 | E-101 | R | `core_optimize` of the original and of nsre given the same source, target tensor, VAE, LPIPS and RNG state give bit-identical results (cosine 1.0, max difference 0.0) in 4 of 5 cases, including non-square crops and eot of 1, 2 and 3. The fifth (2000x1500, HIGH, 300 steps) differs with cosine 0.642, and the original differs from its own rerun by the same amount (0.6417): CUDA nondeterminism, not an implementation difference. |
 | E-102 | R | Concept and target selection rules match: 13 of 13 concept detections, 20 of 20 similarity-ranked targets (ranks 4 to 9, seed 678121), 60 of 60 mapped targets. |
+
+### Library-version finding (found when a user ran the container)
+
+| ID | Class | Finding |
+|---|---|---|
+| E-103 | R | The current Stable Diffusion VAE file (`stable-diffusion-v1-5/stable-diffusion-v1-5`, `vae/diffusion_pytorch_model.fp16.safetensors`) stores attention weights as `to_q/to_k/to_v/to_out`. diffusers 0.14.0 (the version inside Nightshade 1.1) expects `query/key/value/proj_attn`: with `accelerate` installed it raises "keys are missing"; without it the load **succeeds with 16 missing keys left randomly initialised**. diffusers 0.25.1 loads the same file with no missing keys. The original app avoided this by downloading the older file format. |
+| E-104 | R | Same fixed inputs under diffusers 0.14.0 / transformers 4.29.0 vs 0.25.1 / 4.36.2: VAE latent max difference 0.0078 (latent std 3.6), SD img2img target with the same torch seed differs on 31% of pixels (mean 0.4 levels), optimizer output cosine 0.59 and 0.42 (100 steps). The functions are the same, fp16 rounding differs (attention implementation changed) and the optimisation is chaotic. End-to-end quality statistics are unchanged (see parity report). |
+| E-105 | R | diffusers 0.25 pipelines look for a `feature_extractor` config even when the safety checker is disabled; passing `feature_extractor=None` avoids needing it. |

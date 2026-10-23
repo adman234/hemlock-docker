@@ -1,13 +1,15 @@
 # Torch is installed separately in the Dockerfile from the cu128 index (Blackwell cards need it).
-# Library versions match the ones inside the Nightshade 1.1 build that was studied (research/evidence.md E-006) where
-# they affect numerics: diffusers 0.14.0, transformers 4.29.0, tokenizers 0.13.3, huggingface_hub 0.19.4, Pillow 9.3.0.
+# These are the same library versions as adman234/mist-docker, so the two projects can share one environment.
+# diffusers 0.14 (the version inside Nightshade 1.1) cannot read the attention weight names in the current
+# Stable Diffusion VAE files: it either raises "keys are missing" or, without accelerate, silently leaves
+# those weights random. 0.25.1 reads both naming schemes.
 numpy==1.26.4
-Pillow==9.3.0
-diffusers==0.14.0
-transformers==4.29.0
-tokenizers==0.13.3
-huggingface_hub==0.19.4
-safetensors==0.4.1
+diffusers==0.25.1
+transformers==4.36.2
+huggingface_hub==0.25.2
+accelerate==0.25.0
+safetensors==0.4.5
+tokenizers<0.19
 lpips==0.1.4
 nltk==3.8.1
 einops
@@ -15,10 +17,10 @@ ftfy
 regex
 scipy
 tqdm
+Pillow
 gradio==4.44.1
 pydantic==2.10.6
 pyarrow==17.0.0
 pandas<2.3
 fastapi==0.112.2
 starlette==0.38.6
-accelerate==0.25.0

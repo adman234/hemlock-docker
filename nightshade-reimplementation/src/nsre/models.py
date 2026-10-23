@@ -1,4 +1,4 @@
-﻿"""Model and resource loading.
+"""Model and resource loading.
 
 The original downloads Stable Diffusion v1.5 components (unet, text_encoder, vae) plus
 proprietary pickles (CLIP, LPIPS, BLIP, target-concept asset) into ~/.nightshade
@@ -57,7 +57,8 @@ def load_img2img_pipeline(model_id: str, device: str, half: bool):
     """StableDiffusionImg2ImgPipeline; cuda/mps use fp16 weights, CPU uses fp32 + attention slicing."""
     from diffusers import StableDiffusionImg2ImgPipeline
 
-    extra = dict(safety_checker=None, requires_safety_checker=False, **_kw(model_id, "unet"))
+    # safety checker and feature extractor are not used (and not downloaded): pass None so diffusers does not look for them
+    extra = dict(safety_checker=None, feature_extractor=None, requires_safety_checker=False, **_kw(model_id, "unet"))
     if half:
         return StableDiffusionImg2ImgPipeline.from_pretrained(model_id, torch_dtype=torch.float16, **extra).to(device)
     pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id, torch_dtype=torch.float32, **extra).to(device)

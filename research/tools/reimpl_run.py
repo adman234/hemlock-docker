@@ -29,7 +29,7 @@ try:
 
     device = dev_mod.detect_device()
     half = dev_mod.use_half(device)
-    sd = os.path.join(root, "base", "base")
+    sd = os.environ.get("NSRE_SD_DIR") or os.path.join(root, "base", "base")
     seed_everything(seed)
     encode = models.load_vae_encoder(sd, device, half)
     perceptual = models.load_lpips(device, half, pickle_path=os.path.join(root, "lpips_fn.p"))

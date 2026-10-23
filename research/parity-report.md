@@ -31,7 +31,7 @@ seed, so two runs of the original differ by about 3.3 grey levels on average. Us
 - The default web/CLI path uses the Hugging Face CLIP and BLIP checkpoints. Their architectures match the originals
   (E-092, E-093) but the weights were not compared, and the automatic tag-detection path has been run only through the
   selection-rule parity test (with the original's own BLIP/CLIP objects), not with the Hugging Face copies.
-- Pillow, torch and diffusers versions in the container are pinned to the same versions as the original; other versions were not tested.
+- Library versions: the parity numbers above were measured on the original's own pins (diffusers 0.14.0, transformers 4.29.0, Pillow 9.3.0). The container uses diffusers 0.25.1 / transformers 4.36.2 / Pillow 10.4 (the same as mist-docker) because 0.14 cannot read the current Stable Diffusion VAE file. Under the new pins, with the container's exact files, 5 end-to-end cases give the same statistics (MAE 2.65/2.46/1.16/5.01/3.47 vs 2.72/2.39/1.08/5.24/3.31), deterministic image stages are byte-identical across Pillow 9.3 and 10.4, but fixed-input optimizer outputs are **not** bit-identical across the two diffusers versions (VAE latent differs by up to 0.008 in fp16, which the 100-step optimisation amplifies: cosine 0.59 and 0.42 for the two cases). See E-103 to E-105.
 - The container image itself is built and smoke-tested by GitHub Actions, not on this machine.
 
 ## Differences and explanations

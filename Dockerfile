@@ -40,8 +40,9 @@ RUN chmod +x /app/entrypoint.sh
 # Fail the build early if the libraries no longer import together
 RUN python -c "import nsre, nsre.engine, diffusers, transformers, lpips, nltk, gradio; print('imports ok')"
 
-# ...and that the web page really renders (Gradio and Starlette versions have to match)
-RUN python /app/smoke.py
+# ...that the web page really renders (Gradio and Starlette versions have to match), and that the real Stable
+# Diffusion VAE file loads with every weight present (downloads about 160 MB at build time)
+RUN python /app/smoke.py --vae
 
 EXPOSE 7860
 VOLUME /data

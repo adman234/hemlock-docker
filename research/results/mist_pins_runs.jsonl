@@ -1,0 +1,5 @@
+{"id":"M-DIM-1","ok":true,"error":null,"run_s":18.842338800430298,"peak_vram_mb":3995.76171875}
+{"id":"M-DIM-2","ok":true,"error":null,"run_s":20.271427154541016,"peak_vram_mb":4087.77734375}
+{"id":"M-INT-1","ok":true,"error":null,"run_s":20.086769104003906,"peak_vram_mb":4086.27734375}
+{"id":"M-INT-3","ok":true,"error":null,"run_s":56.576534271240234,"peak_vram_mb":4557.650390625}
+{"id":"M-RQ-3","ok":true,"error":null,"run_s":53.04380798339844,"peak_vram_mb":4308.759765625}

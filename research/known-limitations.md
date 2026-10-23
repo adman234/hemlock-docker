@@ -1,4 +1,4 @@
-﻿# Known limitations and unknowns
+# Known limitations and unknowns
 
 ## Limitations of the reimplementation
 
@@ -15,6 +15,7 @@
 | L-009 | No Windows/macOS GUI, download manager, update check or MPS batch limit. The web app replaces the GUI. | out of scope |
 | L-010 | Poisoning effectiveness against any model is not evaluated, for the original or the reimplementation. | out of scope |
 | L-011 | Output is not pixel-reproducible across runs unless `--seed` is used, matching the original's nondeterminism in spirit (the original has no seed at all). | by design |
+| L-013 | The container runs on diffusers 0.25.1 / transformers 4.36.2 / Pillow 10.4 (E-103), not the original's 0.14 / 4.29 / 9.3. Statistics match; fixed-input optimizer outputs are not bit-identical across the two sets (E-104). The bit-identical optimizer parity (E-101) was measured on the original's pins. | deliberate deviation |
 | L-012 | The Docker image has not been built on the development machine (no Docker); it is built and smoke-tested by GitHub Actions. CUDA vs CPU unit test is skipped without a GPU in the test environment. | not verified locally |
 
 ## Unknown register

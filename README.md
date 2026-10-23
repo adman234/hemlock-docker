@@ -64,7 +64,8 @@ Full details in `research/` (start with `evidence.md` and `parity-report.md`).
 - The method: Stable Diffusion img2img makes a target image of a different concept, then a perturbation is optimized so the
   **SD VAE encoder latent** of the perturbed image matches the target's, under an LPIPS (vgg16) hinge penalty and a clamp of
   1.3 x max_change (0.035 / 0.07 / 0.12 for the three intensities; 100 / 150 / 300 / 500 steps with 1 / 2 / 3 / 6 crop samples for the four render qualities, HIGH adds 200).
-- Parity with the original, measured on the same GPU and assets: parameters and deterministic stages identical (115/115 checks,
+- The container uses the same library versions as mist-docker (diffusers 0.25.1). The original's diffusers 0.14 cannot read the current Stable Diffusion VAE file (E-103).
+- Parity with the original, measured on the same GPU and assets and on the original's own library versions: parameters and deterministic stages identical (115/115 checks,
   one deliberate deviation), the optimizer bit-identical for the same inputs in 4 of 5 cases (the fifth differs only by CUDA
   nondeterminism that the original shows against itself), selection rules identical, and end-to-end statistics equal (MAE 2.74 vs 2.72,
   PSNR 36.96 vs 37.01 dB over 22 matched runs).
