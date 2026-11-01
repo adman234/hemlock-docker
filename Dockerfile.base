@@ -4,7 +4,9 @@
 # cu128 wheels cover Turing up to Blackwell (RTX 50xx). Pascal cards: --build-arg TORCH_CUDA=cu126
 FROM python:3.11-slim-bookworm
 
+# renovate: datasource=pypi depName=torch
 ARG TORCH_VERSION=2.8.0
+# renovate: datasource=pypi depName=torchvision
 ARG TORCHVISION_VERSION=0.23.0
 ARG TORCH_CUDA=cu128
 

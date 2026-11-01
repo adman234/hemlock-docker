@@ -3,6 +3,7 @@
 # adds (lpips, nltk, einops). wandb is dropped: only Mist's training CLI imports it, the attack code does not.
 # diffusers 0.14 (the version inside Nightshade 1.1) cannot read the attention weight names in the current Stable
 # Diffusion VAE files, so Hemlock runs on 0.25.1 (E-103 in research/evidence.md).
+# Every version is exact (matching the base image built on 2026-10-23) so a rebuild installs the same set.
 numpy==1.26.4
 diffusers==0.25.1
 transformers==4.36.2
@@ -10,21 +11,21 @@ huggingface_hub==0.25.2
 accelerate==0.25.0
 safetensors==0.4.5
 datasets==2.16.1
-tokenizers<0.19
-ftfy
-scipy
-fire
-tqdm
-colorama
-nvidia-ml-py
-tensorboard
-Pillow
+tokenizers==0.15.2
+ftfy==6.3.1
+scipy==1.17.1
+fire==0.7.1
+tqdm==4.70.1
+colorama==0.4.6
+nvidia-ml-py==13.615.71
+tensorboard==2.21.0
+Pillow==10.4.0
 lpips==0.1.4
 nltk==3.8.1
-einops
+einops==0.8.2
 gradio==4.44.1
 pydantic==2.10.6
 pyarrow==17.0.0
-pandas<2.3
+pandas==2.2.3
 fastapi==0.112.2
 starlette==0.38.6

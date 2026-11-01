@@ -16,6 +16,10 @@ on:
       - '**.md'
       - 'unraid/**'
       - 'research/**'
+  # Weekly rebuild. The base image tag below includes the digest of the python base image, so when Docker publishes a
+  # patched python:3.11-slim-bookworm the base is rebuilt with those fixes; otherwise nothing changes.
+  schedule:
+    - cron: '52 4 * * 2'
   workflow_dispatch:
 
 permissions:
@@ -23,7 +27,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: docker-${{ github.ref }}
+  group: docker-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -63,7 +67,12 @@ jobs:
       - id: base
         run: |
           repo="ghcr.io/${GITHUB_REPOSITORY,,}"
-          ref="$repo:base-${{ matrix.cuda }}-${{ hashFiles('Dockerfile.base', 'docker/requirements.txt', 'docker/smoke.py') }}"
+          # Include the current digest of the FROM image, so a patched python base image triggers a base rebuild
+          from=$(awk '/^FROM /{print $2; exit}' Dockerfile.base)
+          from_digest=$(docker buildx imagetools inspect "$from" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "FROM $from is $from_digest"
+          hash=$(echo "${{ hashFiles('Dockerfile.base', 'docker/requirements.txt', 'docker/smoke.py') }} $from_digest" | sha256sum | cut -c1-16)
+          ref="$repo:base-${{ matrix.cuda }}-$hash"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"; echo "Base image $ref already published, reusing it"
